@@ -459,6 +459,7 @@ static int dwcmshc_probe(struct platform_device *pdev)
 
 	priv->flags = drv_data->flags;
 	if (drv_data->flags & RK_PLATFROM) {
+		clk_set_rate(pltfm_host->clk, 24000000);
 		err = rockchip_pltf_init(host, priv);
 		if (err)
 			goto err_clk;
