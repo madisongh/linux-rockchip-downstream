@@ -611,11 +611,9 @@ static struct rockchip_gem_object *
 	struct rockchip_gem_object *rk_obj;
 	struct drm_gem_object *obj;
 
-#ifdef CONFIG_ARM_LPAE
+	/* Limit the object to 32bit mappings */
 	gfp_t gfp_mask = GFP_HIGHUSER | __GFP_RECLAIMABLE | __GFP_DMA32;
-#else
-	gfp_t gfp_mask = GFP_HIGHUSER | __GFP_RECLAIMABLE;
-#endif
+
 	size = round_up(size, PAGE_SIZE);
 
 	rk_obj = kzalloc(sizeof(*rk_obj), GFP_KERNEL);
