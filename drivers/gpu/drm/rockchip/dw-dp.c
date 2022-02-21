@@ -280,6 +280,20 @@ struct dw_dp {
 	bool split_mode;
 	struct dw_dp *left;
 	struct dw_dp *right;
+
+	struct drm_property *color_depth_property;
+	struct drm_property *color_format_property;
+	struct drm_property *color_depth_capacity;
+	struct drm_property *color_format_capacity;
+
+	struct rockchip_drm_sub_dev sub_dev;
+};
+
+struct dw_dp_state {
+	struct drm_connector_state state;
+
+	int bpc;
+	int color_format;
 };
 
 enum {
@@ -1524,12 +1538,6 @@ static void dw_dp_hpd_init(struct dw_dp *dp)
 
 static void dw_dp_aux_init(struct dw_dp *dp)
 {
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, AUX_RESET,
-			   FIELD_PREP(AUX_RESET, 1));
-	usleep_range(10, 20);
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, AUX_RESET,
-			   FIELD_PREP(AUX_RESET, 0));
-
 	regmap_update_bits(dp->regmap, DPTX_GENERAL_INTERRUPT_ENABLE,
 			   AUX_REPLY_EVENT_EN,
 			   FIELD_PREP(AUX_REPLY_EVENT_EN, 1));
@@ -1537,18 +1545,6 @@ static void dw_dp_aux_init(struct dw_dp *dp)
 
 static void dw_dp_init(struct dw_dp *dp)
 {
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, CONTROLLER_RESET,
-			   FIELD_PREP(CONTROLLER_RESET, 1));
-	usleep_range(10, 20);
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, CONTROLLER_RESET,
-			   FIELD_PREP(CONTROLLER_RESET, 0));
-
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, PHY_SOFT_RESET,
-			   FIELD_PREP(PHY_SOFT_RESET, 1));
-	usleep_range(10, 20);
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, PHY_SOFT_RESET,
-			   FIELD_PREP(PHY_SOFT_RESET, 0));
-
 	regmap_update_bits(dp->regmap, DPTX_CCTL, DEFAULT_FAST_LINK_TRAIN_EN,
 			   FIELD_PREP(DEFAULT_FAST_LINK_TRAIN_EN, 0));
 
@@ -1749,6 +1745,16 @@ static int dw_dp_bridge_mode_valid(struct drm_bridge *bridge,
 	return MODE_OK;
 }
 
+static void dw_dp_loader_protect(struct drm_encoder *encoder, bool on)
+{
+	struct dw_dp *dp = encoder_to_dp(encoder);
+
+	if (on)
+		phy_power_on(dp->phy);
+	else
+		phy_power_off(dp->phy);
+}
+
 static int dw_dp_bridge_attach(struct drm_bridge *bridge,
 			       enum drm_bridge_attach_flags flags)
 {
@@ -1779,6 +1785,11 @@ static int dw_dp_bridge_attach(struct drm_bridge *bridge,
 				 &dw_dp_connector_helper_funcs);
 
 	drm_connector_attach_encoder(connector, bridge->encoder);
+
+	dp->sub_dev.connector = connector;
+	dp->sub_dev.of_node = dp->dev->of_node;
+	dp->sub_dev.loader_protect = dw_dp_loader_protect;
+	rockchip_drm_register_sub_dev(&dp->sub_dev);
 
 	return 0;
 }
@@ -2604,11 +2615,8 @@ static int __maybe_unused dw_dp_runtime_resume(struct device *dev)
 	clk_prepare_enable(dp->apb_clk);
 	clk_prepare_enable(dp->aux_clk);
 
-	reset_control_assert(dp->rstc);
-	udelay(10);
-	reset_control_deassert(dp->rstc);
-
 	dw_dp_init(dp);
+
 	enable_irq(dp->irq);
 
 	return 0;
