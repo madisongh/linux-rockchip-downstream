@@ -490,6 +490,135 @@
 	};
 };
 
+&rk806single {
+	pinctrl-names = "default", "pmic-power-off";
+	pinctrl-0 = <&pmic_pins>, <&rk806_dvs1_null>, <&rk806_dvs2_null>, <&rk806_dvs3_null>;
+	pinctrl-1 = <&rk806_dvs1_slp>, <&rk806_dvs2_null>, <&rk806_dvs3_null>;
+
+	regulators {
+		avcc_1v8_s0: PLDO_REG1 {
+			regulator-always-on;
+			regulator-boot-on;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-name = "avcc_1v8_s0";
+			regulator-state-mem {
+				regulator-on-in-suspend;
+				regulator-suspend-microvolt = <1800000>;
+			};
+		};
+	};
+};
+
+&rockchip_suspend {
+	status = "okay";
+	rockchip,sleep-debug-en = <1>;
+	rockchip,virtual-poweroff = <1>;
+	rockchip,sleep-mode-config = <
+		(0
+		| RKPM_SLP_ARMOFF_DDRPD
+		)
+	>;
+	rockchip,wakeup-config = <
+		(0
+		| RKPM_CPU0_WKUP_EN
+		| RKPM_GPIO_WKUP_EN
+		)
+	>;
+};
+
+&route_dp0 {
+	status = "okay";
+	force-output;
+	connect = <&vp2_out_dp0>;
+
+	force_timing {
+		clock-frequency = <65000000>;
+		hactive = <1024>;
+		vactive = <768>;
+		hfront-porch = <24>;
+		hsync-len = <136>;
+		hback-porch = <160>;
+		vfront-porch = <3>;
+		vsync-len = <6>;
+		vback-porch = <29>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <0>;
+		pixelclk-active = <0>;
+	};
+
+};
+
+&route_dp1 {
+	status = "okay";
+	force-output;
+	connect = <&vp2_out_dp1>;
+
+	force_timing {
+		clock-frequency = <65000000>;
+		hactive = <1024>;
+		vactive = <768>;
+		hfront-porch = <24>;
+		hsync-len = <136>;
+		hback-porch = <160>;
+		vfront-porch = <3>;
+		vsync-len = <6>;
+		vback-porch = <29>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <0>;
+		pixelclk-active = <0>;
+	};
+
+};
+
+&route_hdmi0 {
+	status = "okay";
+	force-output;
+	connect = <&vp2_out_hdmi0>;
+
+	force_timing {
+		clock-frequency = <65000000>;
+		hactive = <1024>;
+		vactive = <768>;
+		hfront-porch = <24>;
+		hsync-len = <136>;
+		hback-porch = <160>;
+		vfront-porch = <3>;
+		vsync-len = <6>;
+		vback-porch = <29>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <0>;
+		pixelclk-active = <0>;
+	};
+
+};
+
+&route_hdmi1 {
+	status = "okay";
+	force-output;
+	connect = <&vp2_out_hdmi1>;
+
+	force_timing {
+		clock-frequency = <65000000>;
+		hactive = <1024>;
+		vactive = <768>;
+		hfront-porch = <24>;
+		hsync-len = <136>;
+		hback-porch = <160>;
+		vfront-porch = <3>;
+		vsync-len = <6>;
+		vback-porch = <29>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <0>;
+		pixelclk-active = <0>;
+	};
+
+};
+
 &sata0 {
 	status = "okay";
 };
@@ -512,8 +641,8 @@
 &pinctrl {
 	dp {
 		dp1_hdmi_ctl: dp-hdmi-ctl {
-			rockchip,pins = <0 RK_PD5 RK_FUNC_GPIO &pcfg_output_high>,
-					<3 RK_PB2 RK_FUNC_GPIO &pcfg_output_high>;
+			rockchip,pins = <0 RK_PD5 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
