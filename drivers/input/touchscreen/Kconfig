@@ -522,9 +522,6 @@ config TOUCHSCREEN_ELAN
 	  To compile this driver as a module, choose M here: the
 	  module will be called elants_i2c.
 
-config TOUCHSCREEN_ELAN5515
-	tristate "Elan5515 touchscreen"
-	depends on I2C
 
 config TOUCHSCREEN_ELO
 	tristate "Elo serial touchscreens"
@@ -1360,4 +1357,14 @@ config TOUCHSCREEN_ZINITIX
 	  To compile this driver as a module, choose M here: the
 	  module will be called zinitix.
 
+config TOUCHSCREEN_HX83102
+    bool "HIMAX HX83102"
+    depends on I2C
+    default n
+    help
+        Say Y here if you have Himax touch panel.
+        If unsure, say N.
+
+
+source "drivers/input/touchscreen/hxchipset/Kconfig"
 endif

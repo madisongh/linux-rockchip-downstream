@@ -16,7 +16,6 @@
 		dp1 = &dp1;
 		edp0 = &edp0;
 		edp1 = &edp1;
-		ethernet0 = &gmac0;
 		hdptx0 = &hdptxphy0;
 		hdptx1 = &hdptxphy1;
 		hdptxhdmi0 = &hdptxphy_hdmi0;
@@ -48,20 +47,6 @@
 		compatible = "rockchip,rk3568-csi2-dphy";
 		rockchip,hw = <&csi2_dphy1_hw>;
 		status = "disabled";
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		/* Reserve 128MB cma memory for hdmirx driver */
-		hdmirx_reserved: hdmirx@10000000 {
-			compatible = "shared-dma-pool";
-			reusable;
-			reg = <0x0 0x10000000 0x0 (128 * 0x100000)>;
-			status = "disabled";
-		};
 	};
 
 	rkcif_mipi_lvds4: rkcif-mipi-lvds4 {
@@ -201,7 +186,7 @@
 		dmas = <&dmac1 22>;
 		dma-names = "tx";
 		clock-names = "mclk", "hclk";
-		clocks = <&cru MCLK_SPDIF5_DP1>, <&cru HCLK_SPDIF5_DP1>;
+		clocks = <&cru MCLK_SPDIF5>, <&cru HCLK_SPDIF5_DP1>;
 		assigned-clocks = <&cru CLK_SPDIF5_DP1_SRC>;
 		assigned-clock-parents = <&cru PLL_AUPLL>;
 		power-domains = <&power RK3588_PD_VO0>;
@@ -334,13 +319,16 @@
 		compatible = "rockchip,rk3588-dp";
 		reg = <0x0 0xfde60000 0x0 0x4000>;
 		interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&cru PCLK_DP1>, <&cru CLK_AUX16M_1>, <&hclk_vo0>;
-		clock-names = "apb", "aux", "hclk";
+		clocks = <&cru PCLK_DP1>, <&cru CLK_AUX16M_1>,
+			 <&cru MCLK_I2S8_8CH_TX>, <&cru MCLK_SPDIF5_DP1>,
+			 <&hclk_vo0>;
+		clock-names = "apb", "aux", "i2s", "spdif", "hclk";
 		assigned-clocks = <&cru CLK_AUX16M_1>;
 		assigned-clock-rates = <16000000>;
 		resets = <&cru SRST_DP1>;
 		phys = <&usbdp_phy1_dp>;
 		power-domains = <&power RK3588_PD_VO0>;
+		#sound-dai-cells = <1>;
 		status = "disabled";
 
 		ports {
@@ -483,7 +471,6 @@
 		power-domains = <&power RK3588_PD_VO1>;
 		rockchip,grf = <&sys_grf>;
 		rockchip,vo1_grf = <&vo1_grf>;
-		memory-region = <&hdmirx_reserved>;
 		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>;
@@ -663,7 +650,7 @@
 			interrupts = <GIC_SPI 240 IRQ_TYPE_EDGE_RISING>;
 		};
 	};
-
+/*
 	gmac0: ethernet@fe1b0000 {
 		compatible = "rockchip,rk3588-gmac", "snps,dwmac-4.20a";
 		reg = <0x0 0xfe1b0000 0x0 0x10000>;
@@ -714,7 +701,7 @@
 			queue1 {};
 		};
 	};
-
+*/
 	sata1: sata@fe220000 {
 		compatible = "rockchip,rk-ahci", "snps,dwc-ahci";
 		reg = <0 0xfe220000 0 0x1000>;

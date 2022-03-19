@@ -85,6 +85,12 @@ static struct reg_default es8323_reg_defaults[] = {
 	{ 0x2c, 0x38 },
 };
 
+enum INPUT_LINE_DEV{
+	INPUT_LIN1,
+	INPUT_LIN2,        //mic line
+	INPUT_LIN2_DIFF,   //mic differential
+};
+
 /* codec private data */
 struct es8323_priv {
 	unsigned int sysclk;
@@ -94,6 +100,8 @@ struct es8323_priv {
 	struct snd_soc_component *component;
 	struct regmap *regmap;
 };
+
+struct es8323_priv *es8323_param = NULL;
 
 static int es8323_reset(struct snd_soc_component *component)
 {
@@ -770,8 +778,8 @@ static int es8323_probe(struct snd_soc_component *component)
 	snd_soc_component_write(component, 0x06, 0xC3);
 	snd_soc_component_write(component, 0x19, 0x02);
 	snd_soc_component_write(component, 0x09, 0x00);
-	snd_soc_component_write(component, 0x0A, 0x00);
-	snd_soc_component_write(component, 0x0B, 0x02);
+	snd_soc_component_write(component, 0x0A, 0xf0);
+	snd_soc_component_write(component, 0x0B, 0x82);
 	snd_soc_component_write(component, 0x0C, 0x4C);
 	snd_soc_component_write(component, 0x0D, 0x02);
 	snd_soc_component_write(component, 0x10, 0x00);
@@ -850,7 +858,7 @@ static int es8323_i2c_probe(struct i2c_client *i2c,
 	es8323 = devm_kzalloc(&i2c->dev, sizeof(struct es8323_priv), GFP_KERNEL);
 	if (!es8323)
 		return -ENOMEM;
-
+	es8323_param = es8323;
 	es8323->regmap = devm_regmap_init_i2c(i2c, &es8323_regmap_config);
 	if (IS_ERR(es8323->regmap))
 		return PTR_ERR(es8323->regmap);
@@ -882,6 +890,23 @@ static const struct i2c_device_id es8323_i2c_id[] = {
 };
 
 MODULE_DEVICE_TABLE(i2c, es8323_i2c_id);
+
+//value 0:line1  1:line2  2:line2 diff
+void es8323_line1_line2_line2diff_switch(bool value)
+{
+	if(!es8323_param)
+		return;
+	if(value == INPUT_LIN1){
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0x00);
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x02);
+	}else if(value == INPUT_LIN2){
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0x50);
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x82);
+	}else{
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0xf0);
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x82);
+	}
+}
 
 static void es8323_i2c_shutdown(struct i2c_client *client)
 {

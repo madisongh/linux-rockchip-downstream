@@ -822,7 +822,7 @@ static void hdmi_select_link_config(struct rockchip_hdmi *hdmi,
 	hdmi->link_cfg.frl_lanes = max_lanes;
 	hdmi->link_cfg.rate_per_lane = max_rate_per_lane;
 
-	if (!max_frl_rate || tmdsclk < HDMI20_MAX_RATE) {
+	if (!max_frl_rate || (tmdsclk < HDMI20_MAX_RATE && mode->clock < HDMI20_MAX_RATE)) {
 		dev_info(hdmi->dev, "use tmds mode\n");
 		hdmi->link_cfg.frl_mode = false;
 		return;
@@ -1826,8 +1826,8 @@ dw_hdmi_rockchip_select_output(struct drm_connector_state *conn_state,
 		}
 	}
 
-	if (mode->clock >= 340000 && hdmi->is_hdmi_qp)
-		*color_format = DRM_HDMI_OUTPUT_YCBCR420;
+	//if (mode->clock >= 340000 && hdmi->is_hdmi_qp)
+	//	*color_format = DRM_HDMI_OUTPUT_YCBCR420;
 
 	if (*color_format == DRM_HDMI_OUTPUT_YCBCR420) {
 		*output_mode = ROCKCHIP_OUT_MODE_YUV420;

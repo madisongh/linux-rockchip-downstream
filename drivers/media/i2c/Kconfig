@@ -1156,6 +1156,13 @@ config VIDEO_OS02G10
 	  This is a Video4Linux2 sensor driver for the OmniVision
 	  OS02G10 camera.
 
+config VIDEO_XC7160
+       tristate "Firefly XC7160 support."
+       depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+       depends on MEDIA_CAMERA_SUPPORT
+       help
+               Driver for sv-taysh camera.This camera consists of ISP xc7160 and sensor sc8238
+
 config VIDEO_OS04A10
 	tristate "OmniVision OS04A10 sensor support"
 	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API

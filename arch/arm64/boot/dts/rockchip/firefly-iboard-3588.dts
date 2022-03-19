@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
+ *
+ */
+
+/dts-v1/;
+
+#include "firefly-iboard-3588.dtsi"
+#include "rk3588-evb4-xc7160.dtsi"
+#include "rk3588-linux.dtsi"
+
+/ {
+	model = "Firefly IBoard RK3588Q LP4 Board";
+	compatible = "firefly,iboard-rk3588q", "rockchip,rk3588";
+};
+
+#if 0   //0: default use UART2 Debug 1: use SDCard
+&sdmmc_pwren{
+    rockchip,pins = <3 RK_PC7 2 &pcfg_pull_down>;
+};
+
+&sdmmc {
+    pinctrl-0 = <&sdmmc_pwren &sdmmc_clk &sdmmc_cmd &sdmmc_det &sdmmc_bus4>;
+    status = "okay";
+};
+#else
+&fiq_debugger {
+    pinctrl-0 = <&uart2m1_xfer>;
+    status = "okay";
+};
+#endif

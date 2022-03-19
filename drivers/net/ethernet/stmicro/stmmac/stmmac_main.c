@@ -46,6 +46,7 @@
 #include "dwxgmac2.h"
 #include "hwif.h"
 
+#define RTL_8211F_PHY_ID  0x001cc916
 #define	STMMAC_ALIGN(x)		ALIGN(ALIGN(x, SMP_CACHE_BYTES), 16)
 #define	TSO_MAX_BUFF_SIZE	(SZ_16K - 1)
 
@@ -4875,6 +4876,25 @@ int stmmac_reinit_ringparam(struct net_device *dev, u32 rx_size, u32 tx_size)
 	return ret;
 }
 
+static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
+{
+   int value;
+    printk("%s in\n", __func__);
+
+       value = phy_read(phydev, 31);
+    phy_write(phydev, 31, 0xd04);
+
+    mdelay(10);
+    value = phy_read(phydev, 16);
+    value =0x6940;
+    phy_write(phydev, 16, value);
+
+    mdelay(10);
+    phy_read(phydev, 31);
+    phy_write(phydev, 31, 0x00);
+    return 0;
+}
+
 /**
  * stmmac_dvr_probe
  * @device: device pointer
@@ -5109,6 +5129,10 @@ int stmmac_dvr_probe(struct device *device,
 		if (ret < 0)
 			goto error_serdes_powerup;
 	}
+
+	ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, 0xffffffff, phy_rtl8211f_led_fixup);
+	if (ret)
+	        pr_warn("Cannot register 8211f PHY board fixup.\n");
 
 #ifdef CONFIG_DEBUG_FS
 	stmmac_init_fs(ndev);
