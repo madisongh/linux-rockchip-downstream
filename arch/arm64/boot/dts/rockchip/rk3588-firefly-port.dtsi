@@ -227,7 +227,7 @@
 
 	vcc_hub_reset: vcc-hub-reset-regulator {
 		compatible = "regulator-fixed"; 
-		regulator-name = "vcc5v0_host";
+		regulator-name = "vcc_hub_reset";
 		regulator-boot-on;
 		regulator-always-on; 
 		enable-active-high;
@@ -237,8 +237,7 @@
 
 	vcc_hub3_reset: vcc-hub3-reset-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "vcc5v0_host";
-		regulator-boot-on;
+		regulator-name = "vcc_hub3_reset";
 		regulator-always-on;
 		enable-active-high;
 		status = "disabled";
