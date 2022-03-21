@@ -357,7 +357,14 @@ static void kbase_device_term_partial(struct kbase_device *kbdev,
 
 void kbase_device_term(struct kbase_device *kbdev)
 {
-	kbdev->csf.mali_file_inode = NULL;
+	int i = 0;
+	for(i = 0; i < MAX_FILE_INODE; i++)
+	{
+		//printk("rk-debug[%s %s %d] pid=%d  name:%s i=%d\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,i); //kernel带进程名
+		kbdev->csf.mfi_pool[i] = NULL;
+		kbdev->csf.mfi_pool_cached_counter[i] = 0;
+	}
+
 	kbase_device_term_partial(kbdev, ARRAY_SIZE(dev_init));
 	kbase_mem_halt(kbdev);
 }

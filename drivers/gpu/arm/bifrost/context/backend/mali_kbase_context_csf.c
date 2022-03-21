@@ -115,6 +115,73 @@ static void kbase_context_term_partial(
 	}
 }
 
+static int create_mfi_pool_node(struct kbase_device *kbdev,struct kbase_context *kctx)
+{
+	//printk("rk-debug[%s %s %d] pid=%d  name:%s kbdev:%p kctx:%p filp->f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kbdev,kctx,kctx->filp->f_inode); //kernel带进程名
+
+	if (kctx->filp) {
+		int i = 0;
+		//printk("rk-debug[%s %s %d] pid=%d  name:%s kctx:%p filp->f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kctx,kctx->filp->f_inode); //kernel带进程名
+
+        //查找是否mfi_pool中是否已有该f_inode
+		for(i = 0; i < MAX_FILE_INODE; i++)
+		{
+			if(kctx->filp->f_inode == kbdev->csf.mfi_pool[i])
+			{
+				//printk("rk-debug[%s %s %d] pid=%d  name:%s\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm); //kernel带进程名
+				kbdev->csf.mfi_pool_cached_counter[i]++;
+				return 0;
+			}
+		}
+
+		for(i = 0; i < MAX_FILE_INODE; i++)
+		{
+			if (!kbdev->csf.mfi_pool[i])
+			{
+				//printk("rk-debug[%s %s %d] pid=%d  name:%s mali_file_inode:%p f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kbdev->csf.mfi_pool[i],kctx->filp->f_inode); //kernel带进程名
+				kbdev->csf.mfi_pool[i] = kctx->filp->f_inode;
+				kbdev->csf.mfi_pool_cached_counter[i]++;
+				return 0;
+			}
+		}
+
+		printk("rk-debug[%s %s %d] pid=%d  name:%s out of MAX_FILE_INODE:%d\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,MAX_FILE_INODE); //kernel带进程名
+		return -1;
+	}
+
+	return 0;
+}
+
+static int destory_mfi_pool_node(struct kbase_device *kbdev,struct kbase_context *kctx)
+{
+	//printk("rk-debug[%s %s %d] pid=%d  name:%s kbdev:%p kctx:%p filp->f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kbdev,kctx,kctx->filp->f_inode); //kernel带进程名
+
+	if (kctx->filp) {
+		int i = 0;
+		//printk("rk-debug[%s %s %d] pid=%d  name:%s kctx:%p filp->f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kctx,kctx->filp->f_inode); //kernel带进程名
+
+        //查找是否mfi_pool中是否已有该f_inode
+		for(i = 0; i < MAX_FILE_INODE; i++)
+		{
+			if(kctx->filp->f_inode == kbdev->csf.mfi_pool[i])
+			{
+				kbdev->csf.mfi_pool_cached_counter[i]--;
+				if(kbdev->csf.mfi_pool_cached_counter[i] == 0)
+				{
+					//printk("rk-debug[%s %s %d] pid=%d  name:%s release all f_inode%p in mfi_pool\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kctx->filp->f_inode); //kernel带进程名
+					kbdev->csf.mfi_pool[i] = NULL;
+				}
+				return 0;
+			}
+        }
+
+		printk("rk-debug[%s %s %d] pid=%d  name:%s can't find f_inode:%p in mfi_pool[%d]s\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kctx->filp->f_inode,MAX_FILE_INODE); //kernel带进程名
+		return -1;
+	}
+
+	return 0;
+}
+
 struct kbase_context *kbase_create_context(struct kbase_device *kbdev,
 	bool is_compat,
 	base_context_create_flags const flags,
@@ -140,6 +207,12 @@ struct kbase_context *kbase_create_context(struct kbase_device *kbdev,
 	kctx->api_version = api_version;
 	kctx->filp = filp;
 	kctx->create_flags = flags;
+
+	//printk("rk-debug[%s %s %d] pid=%d  name:%s kctx:%p filp->f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kctx,kctx->filp->f_inode); //kernel带进程名
+	if (WARN_ON(create_mfi_pool_node(kbdev,kctx)))
+	{
+		return NULL;
+	}
 
 	if (is_compat)
 		kbase_ctx_flag_set(kctx, KCTX_COMPAT);
@@ -182,6 +255,13 @@ void kbase_destroy_context(struct kbase_context *kctx)
 	kbdev = kctx->kbdev;
 	if (WARN_ON(!kbdev))
 		return;
+
+	//printk("rk-debug[%s %s %d] pid=%d  name:%s kctx:%p filp->f_inode:%p\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kctx,kctx->filp->f_inode); //kernel带进程名
+	if (WARN_ON(destory_mfi_pool_node(kbdev,kctx)))
+	{
+		return;
+	}
+
 
 	/* Context termination could happen whilst the system suspend of
 	 * the GPU device is ongoing or has completed. It has been seen on

@@ -1472,6 +1472,7 @@ struct kbase_csf_dump_on_fault {
  * @fw_log:                 Contain members required for handling firmware log.
  * @dof:                    Structure for dump on fault.
  */
+#define MAX_FILE_INODE 16
 struct kbase_csf_device {
 	struct kbase_mmu_table mcu_mmu;
 	struct list_head firmware_interfaces;
@@ -1487,6 +1488,8 @@ struct kbase_csf_device {
 	struct tagged_addr dummy_user_reg_page;
 	u32 nr_user_page_mapped;
 	struct inode *mali_file_inode;
+	struct inode *mfi_pool[MAX_FILE_INODE];
+	int mfi_pool_cached_counter[MAX_FILE_INODE];
 	struct mutex reg_lock;
 	wait_queue_head_t event_wait;
 	bool interrupt_received;
