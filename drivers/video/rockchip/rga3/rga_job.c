@@ -473,6 +473,20 @@ static struct rga_scheduler_t *rga_job_schedule(struct rga_job *job)
 	struct rga_job *job_pos;
 	bool first_match = 0;
 
+	{
+		struct rga_img_info_t *src0 = &job->rga_command_base.src;
+		struct rga_img_info_t *src1 = &job->rga_command_base.pat;
+		struct rga_img_info_t *dst = &job->rga_command_base.dst;
+
+		if (src0->vir_w % 16 != 0 || dst->vir_w % 16 != 0 ||
+		    ((src1->yrgb_addr > 0) ? src1->vir_w %16 != 0 : 0)) {
+			pr_err("TMP: debug_error, rga must align to 16.\n");
+			pr_err("TMP: debug_error, src_w = %d, dst_w = %d, src1_w = %d\n",
+				src0->vir_w, dst->vir_w, src1->vir_w);
+			return NULL;
+		}
+	}
+
 	if (rga_drvdata->num_of_scheduler > 1) {
 		job->core = rga_job_assign(job);
 		if (job->core <= 0) {
