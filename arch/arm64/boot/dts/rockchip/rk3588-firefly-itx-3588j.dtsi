@@ -157,11 +157,54 @@
 	status = "okay";
 };
 
+&gmac0_tx_bus2{
+    rockchip,pins =
+    /* gmac0_txd0 */
+    <2 RK_PB6 1 &pcfg_pull_up_drv_level_6>,
+    /* gmac0_txd1 */
+    <2 RK_PB7 1 &pcfg_pull_up_drv_level_6>,
+    /* gmac0_txen */
+    <2 RK_PC0 1 &pcfg_pull_none>;
+};
+&gmac0_rgmii_bus{
+	rockchip,pins =
+	/* gmac0_rxd2 */
+	<2 RK_PA6 1 &pcfg_pull_none>,
+	/* gmac0_rxd3 */
+	<2 RK_PA7 1 &pcfg_pull_none>,
+	/* gmac0_txd2 */
+	<2 RK_PB1 1 &pcfg_pull_up_drv_level_6>,
+	/* gmac0_txd3 */
+	<2 RK_PB2 1 &pcfg_pull_up_drv_level_6>;
+};
+
 /* gmac1 */
 &gmac1 {
 	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
 	tx_delay = <0x42>;
 	status = "okay";
+};
+
+&gmac1_tx_bus2{
+	rockchip,pins =
+	/* gmac1_txd0 */
+	<3 RK_PB3 1 &pcfg_pull_up_drv_level_6>,
+    /* gmac1_txd1 */
+	<3 RK_PB4 1 &pcfg_pull_up_drv_level_6>,
+	/* gmac1_txen */
+	<3 RK_PB5 1 &pcfg_pull_none>;
+};
+
+&gmac1_rgmii_bus{
+	rockchip,pins =
+	/* gmac1_rxd2 */
+	<3 RK_PA2 1 &pcfg_pull_none>,
+	/* gmac1_rxd3 */
+	<3 RK_PA3 1 &pcfg_pull_none>,
+	/* gmac1_txd2 */
+	<3 RK_PA0 1 &pcfg_pull_up_drv_level_6>,
+	/* gmac1_txd3 */
+	<3 RK_PA1 1 &pcfg_pull_up_drv_level_6>;
 };
 
 /* pcie3.0 x 4 slot */
