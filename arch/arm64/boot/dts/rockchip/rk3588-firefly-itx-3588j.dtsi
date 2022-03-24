@@ -318,6 +318,39 @@
 	status = "okay";
 };
 
+&rockchip_suspend {
+       status = "okay";
+       rockchip,sleep-debug-en = <1>;
+       rockchip,virtual-poweroff = <1>;
+       rockchip,sleep-mode-config = <
+               (0
+               | RKPM_SLP_ARMOFF_DDRPD
+               )
+       >;
+       rockchip,wakeup-config = <
+               (0
+               | RKPM_CPU0_WKUP_EN
+               | RKPM_GPIO_WKUP_EN
+               )
+       >;
+};
+
+
+&route_dp1 {
+	status = "okay";
+	connect = <&vp2_out_dp1>;
+};
+
+&route_hdmi0 {
+	status = "okay";
+	connect = <&vp0_out_hdmi0>;
+};
+
+&route_hdmi1 {
+	status = "okay";
+	connect = <&vp1_out_hdmi1>;
+};
+
 &pinctrl {
 
 	dp {
