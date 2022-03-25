@@ -892,10 +892,11 @@ static const struct i2c_device_id es8323_i2c_id[] = {
 MODULE_DEVICE_TABLE(i2c, es8323_i2c_id);
 
 //value 0:line1  1:line2  2:line2 diff
-void es8323_line1_line2_line2diff_switch(bool value)
+void es8323_line1_line2_line2diff_switch(int value)
 {
 	if(!es8323_param)
 		return;
+	printk("es8323_line1_line2_line2diff_switch:%d\n",value);
 	if(value == INPUT_LIN1){
 		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0x00);
 		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x02);

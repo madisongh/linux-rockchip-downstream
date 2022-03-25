@@ -112,7 +112,7 @@ static const unsigned int headset_extcon_cable[] = {
 	EXTCON_NONE,
 };
 
-extern void es8323_line1_line2_line2diff_switch(bool value);
+extern void es8323_line1_line2_line2diff_switch(int value);
 
 static void mic_det_work(struct work_struct *work)
 {
