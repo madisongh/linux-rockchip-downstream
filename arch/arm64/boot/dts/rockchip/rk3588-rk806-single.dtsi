@@ -182,7 +182,6 @@
 				regulator-ramp-delay = <12500>;
 				regulator-name = "vdd_log_s0";
 				regulator-state-mem {
-					regulator-off-in-suspend;
 					regulator-suspend-microvolt = <750000>;
 				};
 			};

@@ -3,11 +3,15 @@
  * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
  *
  */
-
+ 
+ #define rk3588
  #include "rk3588-firefly-port.dtsi"
+ #include "rk3588-diff.dtsi"
 
  / {
-
+	chosen: chosen {
+		bootargs = "earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 irqchip.gicv3_pseudo_nmi=0 root=PARTLABEL=rootfs rootfstype=ext4 ro rootwait overlayroot=device:dev=PARTLABEL=userdata,fstye=ext4,mkfs=1 coherent_pool=1m systemd.gpt_auto=0 cgroup_enable=memory swapaccount=1";
+	};
 };
 
 /* led */
@@ -21,13 +25,11 @@
 	gpios = <&pca9555 PCA_IO0_3 GPIO_ACTIVE_HIGH>;
 };
 
-
 /* FAN */
 &vcc_fan_pwr_en{
 	status = "okay";
 	gpio = <&pca9555 PCA_IO1_3 GPIO_ACTIVE_HIGH>;  //PCA_IO 13
 };
-
 
 /* tf-card */
 &sdmmc {
@@ -94,6 +96,10 @@
 	status = "okay";
 };
 
+&route_hdmi0{
+	status = "okay";
+};
+
 /* hdmi1 */
 &hdmi1 {
 	enable-gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;
@@ -110,6 +116,11 @@
 
 &hdptxphy_hdmi1 {
 	status = "okay";
+};
+
+&route_hdmi1{
+	status = "okay";
+	connect = <&vp1_out_hdmi1>;
 };
 
 /*ap6275 : bluetooth*/
@@ -166,6 +177,7 @@
     /* gmac0_txen */
     <2 RK_PC0 1 &pcfg_pull_none>;
 };
+
 &gmac0_rgmii_bus{
 	rockchip,pins =
 	/* gmac0_rxd2 */
@@ -260,9 +272,9 @@
 	status = "okay";
 };
 
-
 /* i2c6 */
 &i2c6 {
+	clock-frequency = <400000>; // For others Display Port Screen
 	status = "okay";
 };
 
@@ -317,40 +329,12 @@
 	hpd-gpios = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };
-
-&rockchip_suspend {
-       status = "okay";
-       rockchip,sleep-debug-en = <1>;
-       rockchip,virtual-poweroff = <1>;
-       rockchip,sleep-mode-config = <
-               (0
-               | RKPM_SLP_ARMOFF_DDRPD
-               )
-       >;
-       rockchip,wakeup-config = <
-               (0
-               | RKPM_CPU0_WKUP_EN
-               | RKPM_GPIO_WKUP_EN
-               )
-       >;
-};
-
-
-&route_dp1 {
+&route_dp1{
 	status = "okay";
 	connect = <&vp2_out_dp1>;
 };
 
-&route_hdmi0 {
-	status = "okay";
-	connect = <&vp0_out_hdmi0>;
-};
-
-&route_hdmi1 {
-	status = "okay";
-	connect = <&vp1_out_hdmi1>;
-};
-
+/* pinctrl */
 &pinctrl {
 
 	dp {
