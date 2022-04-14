@@ -51,6 +51,13 @@ static const u16 trans_tbl_vp9d[] = {
 	184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197
 };
 
+static const u16 trans_tbl_avs2d[] = {
+	128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142,
+	161, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176,
+	177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191,
+	192, 193, 194, 195, 196, 197
+};
+
 static struct mpp_trans_info rkvdec_v2_trans[] = {
 	[RKVDEC_FMT_H265D] = {
 		.count = ARRAY_SIZE(trans_tbl_h265d),
@@ -64,6 +71,10 @@ static struct mpp_trans_info rkvdec_v2_trans[] = {
 		.count = ARRAY_SIZE(trans_tbl_vp9d),
 		.table = trans_tbl_vp9d,
 	},
+	[RKVDEC_FMT_AVS2] = {
+		.count = ARRAY_SIZE(trans_tbl_avs2d),
+		.table = trans_tbl_avs2d,
+	}
 };
 
 static int mpp_extract_rcb_info(struct rkvdec2_rcb_info *rcb_inf,
@@ -384,9 +395,8 @@ static int rkvdec2_isr(struct mpp_dev *mpp)
 		   RKVDEC_TIMEOUT_STA | RKVDEC_ERROR_STA;
 	if (err_mask & task->irq_status) {
 		atomic_inc(&mpp->reset_request);
-		mpp_debug(DEBUG_DUMP_ERR_REG, "irq_status: %08x\n",
-			  task->irq_status);
-		mpp_task_dump_hw_reg(mpp, mpp_task);
+		mpp_debug(DEBUG_DUMP_ERR_REG, "irq_status: %08x\n", task->irq_status);
+		mpp_task_dump_hw_reg(mpp);
 	}
 
 	mpp_task_finish(mpp_task->session, mpp_task);
@@ -1077,7 +1087,7 @@ static int rkvdec2_core_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mpp = &dec->mpp;
-	platform_set_drvdata(pdev, dec);
+	platform_set_drvdata(pdev, mpp);
 
 	if (dev->of_node) {
 		struct device_node *np = pdev->dev.of_node;
@@ -1111,6 +1121,7 @@ static int rkvdec2_core_probe(struct platform_device *pdev)
 	mpp->dev_ops->task_worker = rkvdec2_soft_ccu_worker;
 	kthread_init_work(&mpp->work, rkvdec2_soft_ccu_worker);
 
+	mpp->iommu_info->hdl = rkvdec2_ccu_iommu_fault_handle;
 	/* get irq request */
 	ret = devm_request_threaded_irq(dev, mpp->irq, rkvdec2_soft_ccu_irq, NULL,
 					IRQF_SHARED, dev_name(dev), mpp);
@@ -1141,7 +1152,7 @@ static int rkvdec2_probe_default(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mpp = &dec->mpp;
-	platform_set_drvdata(pdev, dec);
+	platform_set_drvdata(pdev, mpp);
 
 	if (pdev->dev.of_node) {
 		match = of_match_node(mpp_rkvdec2_dt_match, pdev->dev.of_node);
@@ -1231,14 +1242,15 @@ static int rkvdec2_remove(struct platform_device *pdev)
 		dev_info(dev, "remove ccu device\n");
 		rkvdec2_ccu_remove(dev);
 	} else {
-		struct rkvdec2_dev *dec = platform_get_drvdata(pdev);
+		struct mpp_dev *mpp = dev_get_drvdata(dev);
+		struct rkvdec2_dev *dec = to_rkvdec2_dev(mpp);
 
 		dev_info(dev, "remove device\n");
 
 		rkvdec2_free_rcbbuf(pdev, dec);
-		mpp_dev_remove(&dec->mpp);
-		rkvdec2_procfs_remove(&dec->mpp);
-		rkvdec2_link_remove(&dec->mpp, dec->link_dec);
+		mpp_dev_remove(mpp);
+		rkvdec2_procfs_remove(mpp);
+		rkvdec2_link_remove(mpp, dec->link_dec);
 	}
 
 	return 0;
@@ -1248,21 +1260,8 @@ static void rkvdec2_shutdown(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
-	if (!strstr(dev_name(dev), "ccu")) {
-		int ret;
-		int val;
-		struct rkvdec2_dev *dec = platform_get_drvdata(pdev);
-		struct mpp_dev *mpp = &dec->mpp;
-
-		dev_info(dev, "shutdown device\n");
-
-		atomic_inc(&mpp->srv->shutdown_request);
-		ret = readx_poll_timeout(atomic_read,
-					&mpp->task_count,
-					val, val == 0, 20000, 200000);
-		if (ret == -ETIMEDOUT)
-			dev_err(dev, "wait total running time out\n");
-	}
+	if (!strstr(dev_name(dev), "ccu"))
+		mpp_dev_shutdown(pdev);
 }
 
 struct platform_driver rockchip_rkvdec2_driver = {

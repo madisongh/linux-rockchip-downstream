@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+ */
+
+/dts-v1/;
+
+#include "rv1103.dtsi"
+#include "rv1103-evb-v10.dtsi"
+
+/ {
+	model = "Rockchip RV1103G EVB V10 Board";
+	compatible = "rockchip,rv1103g-evb-v10", "rockchip,rv1103";
+};

@@ -63,6 +63,13 @@ config SPARSEMEM_MANUAL
 
 endchoice
 
+config MEMBLOCK_DEBUGFS
+	bool "Memblock debugfs for reserved memory"
+	depends on DEBUG_FS && ARCH_KEEP_MEMBLOCK
+	help
+	  Extend memblock debugfs to show size of each memblock, and shows the
+	  result of total size by KiB format.
+
 config DISCONTIGMEM
 	def_bool y
 	depends on (!SELECT_MEMORY_MODEL && ARCH_DISCONTIGMEM_ENABLE) || DISCONTIGMEM_MANUAL
@@ -512,6 +519,13 @@ config CMA_DEBUGFS
 	depends on CMA && DEBUG_FS
 	help
 	  Turns on the DebugFS interface for CMA.
+
+config CMA_DEBUGFS_BITMAP_HEX
+	bool "CMA debugfs add bitmap_hex node"
+	depends on CMA_DEBUGFS
+	help
+	  Turns on the bitmap_hex node under DEBUGFS, shows the bitmap in hex
+	  format.
 
 config CMA_SYSFS
 	bool "CMA information through sysfs interface"

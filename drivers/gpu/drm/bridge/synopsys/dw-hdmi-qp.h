@@ -37,6 +37,8 @@
 #define CMU_CONFIG2					0xa8
 #define CMU_CONFIG3					0xac
 #define CMU_STATUS					0xb0
+#define DISPLAY_CLK_MONITOR				0x3f
+#define DISPLAY_CLK_LOCKED				0X15
 #define EARC_BPCLK_OFF					BIT(9)
 #define AUDCLK_OFF					BIT(7)
 #define LINKQPCLK_OFF					BIT(5)
@@ -193,6 +195,8 @@
 #define PKTSCHED_PRQUEUE2_CONFIG2			0xa94
 #define PKTSCHED_PKT_CONFIG0				0xa98
 #define PKTSCHED_PKT_CONFIG1				0xa9c
+#define PKTSCHED_DRMI_FIELDRATE				BIT(13)
+#define PKTSCHED_AVI_FIELDRATE				BIT(12)
 #define PKTSCHED_PKT_CONFIG2				0xaa0
 #define PKTSCHED_PKT_CONFIG3				0xaa4
 #define PKTSCHED_PKT_EN					0xaa8
@@ -387,6 +391,8 @@
 #define PKT5_EMP_CVTEM_CONTENTS7			0xddc
 /* Audio Packetizer Registers */
 #define AUDPKT_CONTROL0					0xe20
+#define AUDPKT_PBIT_FORCE_EN_MASK			BIT(12)
+#define AUDPKT_PBIT_FORCE_EN				BIT(12)
 #define AUDPKT_CHSTATUS_OVR_EN_MASK			BIT(0)
 #define AUDPKT_CHSTATUS_OVR_EN				BIT(0)
 #define AUDPKT_CONTROL1					0xe24

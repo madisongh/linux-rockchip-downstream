@@ -46,13 +46,14 @@ struct rga_hw_data {
 	unsigned int max_upscale_factor;
 	unsigned int max_downscale_factor;
 
+	uint32_t byte_stride;
+
 	const struct rga_win_data *win;
 	unsigned int win_size;
 };
 
 extern const struct rga_hw_data rga3_data;
 extern const struct rga_hw_data rga2e_data;
-
-void user_format_convert(uint32_t *df, uint32_t sf);
+extern const struct rga_hw_data rga2e_1106_data;
 
 #endif /* __LINUX_RGA_HW_CONFIG_H_ */

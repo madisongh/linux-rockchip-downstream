@@ -18,6 +18,8 @@
 #ifndef _PINCTRL_ROCKCHIP_H
 #define _PINCTRL_ROCKCHIP_H
 
+#include <linux/gpio/driver.h>
+
 #define RK_GPIO0_A0	0
 #define RK_GPIO0_A1	1
 #define RK_GPIO0_A2	2
@@ -185,6 +187,7 @@
 
 enum rockchip_pinctrl_type {
 	PX30,
+	RV1106,
 	RV1108,
 	RV1126,
 	RK1808,
@@ -468,5 +471,20 @@ struct rockchip_pinctrl {
 	struct rockchip_pmx_func	*functions;
 	unsigned int			nfunctions;
 };
+
+#if IS_ENABLED(CONFIG_PINCTRL_ROCKCHIP)
+int rk_iomux_set(int bank, int pin, int mux);
+int rk_iomux_get(int bank, int pin, int *mux);
+#else
+static inline int rk_iomux_set(int bank, int pin, int mux)
+{
+	return -EINVAL;
+}
+
+static inline int rk_iomux_get(int bank, int pin, int *mux)
+{
+	return -EINVAL;
+}
+#endif
 
 #endif

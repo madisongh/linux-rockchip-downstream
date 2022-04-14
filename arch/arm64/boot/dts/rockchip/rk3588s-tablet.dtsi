@@ -83,7 +83,6 @@
 		rockchip,android-charge-on = <0>;
 		rockchip,uboot-low-power-voltage = <6800>;
 		rockchip,screen-on-voltage = <6900>;
-		rockchip,uboot-exit-charge-voltage = <7000>;
 		rockchip,uboot-exit-charge-level = <2>;
 		rockchip,uboot-exit-charge-auto = <1>;
 		status = "okay";
@@ -263,6 +262,10 @@
 	};
 };
 
+&av1d_mmu {
+	status = "okay";
+};
+
 &avdd_1v2_cam_s0 {
 	regulator-min-microvolt = <1350000>;
 	regulator-max-microvolt = <1350000>;
@@ -297,6 +300,7 @@
 };
 
 &edp0 {
+	support-psr;
 	force-hpd;
 	status = "okay";
 

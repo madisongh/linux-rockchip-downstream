@@ -46,6 +46,7 @@
 #include "isp_mipi_luma.h"
 #include "procfs.h"
 #include "isp_external.h"
+#include "version.h"
 
 #define DRIVER_NAME "rkisp"
 #define ISP_VDEV_NAME DRIVER_NAME  "_ispdev"
@@ -59,8 +60,8 @@
 #define GRP_ID_ISP_BRIDGE		BIT(6)
 #define GRP_ID_CSI			BIT(7)
 
-#define RKISP_MAX_SENSOR		2
-#define RKISP_MAX_PIPELINE		4
+#define RKISP_MAX_SENSOR		4
+#define RKISP_MAX_PIPELINE		8
 
 #define RKISP_MEDIA_BUS_FMT_MASK	0xF000
 #define RKISP_MEDIA_BUS_FMT_BAYER	0x3000
@@ -148,6 +149,7 @@ struct rkisp_sensor_info {
 struct rkisp_hdr {
 	u8 op_mode;
 	u8 esp_mode;
+	u8 compr_bit;
 	u8 index[HDR_DMA_MAX];
 	atomic_t refcnt;
 	struct v4l2_subdev *sensor;
@@ -180,7 +182,6 @@ struct rkisp_device {
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct media_device media_dev;
 	struct v4l2_async_notifier notifier;
-	struct v4l2_subdev *subdevs[RKISP_SD_MAX];
 	struct rkisp_sensor_info *active_sensor;
 	struct rkisp_sensor_info sensors[RKISP_MAX_SENSOR];
 	int num_sensors;
@@ -234,5 +235,7 @@ struct rkisp_device {
 	spinlock_t cmsk_lock;
 	struct rkisp_cmsk_cfg cmsk_cfg;
 	bool is_cmsk_upd;
+	bool is_hw_link;
+	bool is_bigmode;
 };
 #endif

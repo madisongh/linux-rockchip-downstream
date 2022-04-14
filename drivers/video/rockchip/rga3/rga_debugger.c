@@ -31,6 +31,7 @@ int RGA_DEBUG_TIME;
 int RGA_DEBUG_CHECK_MODE;
 int RGA_DEBUG_NONUSE;
 int RGA_DEBUG_INT_FLAG;
+int RGA_DEBUG_DEBUG_MODE;
 
 static int rga_debug_show(struct seq_file *m, void *data)
 {
@@ -43,9 +44,9 @@ static int rga_debug_show(struct seq_file *m, void *data)
 		 STR_ENABLE(RGA_DEBUG_REG),
 		 STR_ENABLE(RGA_DEBUG_MSG),
 		 STR_ENABLE(RGA_DEBUG_TIME),
+		 STR_ENABLE(RGA_DEBUG_INT_FLAG),
 		 STR_ENABLE(RGA_DEBUG_CHECK_MODE),
-		 STR_ENABLE(RGA_DEBUG_NONUSE),
-		 STR_ENABLE(RGA_DEBUG_INT_FLAG));
+		 STR_ENABLE(RGA_DEBUG_NONUSE));
 
 	seq_puts(m, "\nhelp:\n");
 	seq_puts(m,
@@ -122,6 +123,24 @@ static ssize_t rga_debug_write(struct file *file, const char __user *ubuf,
 			RGA_DEBUG_INT_FLAG = 1;
 			pr_info("open inturrupt MSG!\n");
 		}
+	} else if (strncmp(buf, "debug", 3) == 0) {
+		if (RGA_DEBUG_DEBUG_MODE) {
+			RGA_DEBUG_REG = 0;
+			RGA_DEBUG_MSG = 0;
+			RGA_DEBUG_TIME = 0;
+			RGA_DEBUG_INT_FLAG = 0;
+
+			RGA_DEBUG_DEBUG_MODE = 0;
+			pr_info("close debug mode!\n");
+		} else {
+			RGA_DEBUG_REG = 1;
+			RGA_DEBUG_MSG = 1;
+			RGA_DEBUG_TIME = 1;
+			RGA_DEBUG_INT_FLAG = 1;
+
+			RGA_DEBUG_DEBUG_MODE = 1;
+			pr_info("open debug mode!\n");
+		}
 	} else if (strncmp(buf, "slt", 3) == 0) {
 		pr_err("Null");
 	}
@@ -138,7 +157,7 @@ static int rga_version_show(struct seq_file *m, void *data)
 
 static int rga_load_show(struct seq_file *m, void *data)
 {
-	struct rga_scheduler_t *rga_scheduler = NULL;
+	struct rga_scheduler_t *scheduler = NULL;
 	unsigned long flags;
 	int i;
 	int load;
@@ -148,19 +167,22 @@ static int rga_load_show(struct seq_file *m, void *data)
 	seq_printf(m, "================= load ==================\n");
 
 	for (i = 0; i < rga_drvdata->num_of_scheduler; i++) {
-		rga_scheduler = rga_drvdata->rga_scheduler[i];
+		scheduler = rga_drvdata->scheduler[i];
 
 		seq_printf(m, "scheduler[%d]: %s\n",
-			i, dev_driver_string(rga_scheduler->dev));
+			i, dev_driver_string(scheduler->dev));
 
-		spin_lock_irqsave(&rga_scheduler->irq_lock, flags);
+		spin_lock_irqsave(&scheduler->irq_lock, flags);
 
-		busy_time_total = rga_scheduler->timer.busy_time_record;
+		busy_time_total = scheduler->timer.busy_time_record;
 
-		spin_unlock_irqrestore(&rga_scheduler->irq_lock, flags);
+		spin_unlock_irqrestore(&scheduler->irq_lock, flags);
 
-		load = (busy_time_total * 100000 / RGA_LOAD_INTERVAL);
-		seq_printf(m, "load = %d", load);
+		load = (busy_time_total * 100 / RGA_LOAD_INTERVAL_US);
+		if (load > 100)
+			load = 100;
+
+		seq_printf(m, "\t load = %d%%\n", load);
 		seq_printf(m, "-----------------------------------\n");
 	}
 	return 0;
@@ -168,19 +190,19 @@ static int rga_load_show(struct seq_file *m, void *data)
 
 static int rga_scheduler_show(struct seq_file *m, void *data)
 {
-	struct rga_scheduler_t *rga_scheduler = NULL;
+	struct rga_scheduler_t *scheduler = NULL;
 	int i;
 
 	seq_printf(m, "num of scheduler = %d\n", rga_drvdata->num_of_scheduler);
 	seq_printf(m, "===================================\n");
 
 	for (i = 0; i < rga_drvdata->num_of_scheduler; i++) {
-		rga_scheduler = rga_drvdata->rga_scheduler[i];
+		scheduler = rga_drvdata->scheduler[i];
 
 		seq_printf(m, "scheduler[%d]: %s\n",
-			i, dev_driver_string(rga_scheduler->dev));
+			i, dev_driver_string(scheduler->dev));
 		seq_printf(m, "-----------------------------------\n");
-		seq_printf(m, "pd_ref = %d\n", rga_scheduler->pd_refcount);
+		seq_printf(m, "pd_ref = %d\n", scheduler->pd_refcount);
 	}
 
 	return 0;
@@ -201,12 +223,13 @@ static int rga_mm_session_show(struct seq_file *m, void *data)
 	seq_puts(m, "===============================================================\n");
 
 	idr_for_each_entry(&mm_session->memory_idr, dump_buffer, id) {
-		seq_printf(m, "handle = %d	refcount = %d	mm_flag = 0x%x\n",
+		seq_printf(m, "handle = %d refcount = %d mm_flag = 0x%x	tgid = %d\n",
 			   dump_buffer->handle, kref_read(&dump_buffer->refcount),
-			   dump_buffer->mm_flag);
+			   dump_buffer->mm_flag, dump_buffer->session->tgid);
 
 		switch (dump_buffer->type) {
 		case RGA_DMA_BUFFER:
+		case RGA_DMA_BUFFER_PTR:
 			seq_puts(m, "dma_buffer:\n");
 			for (i = 0; i < dump_buffer->dma_buffer_size; i++) {
 				seq_printf(m, "\t core %d:\n", dump_buffer->dma_buffer[i].core);
@@ -246,12 +269,63 @@ static int rga_mm_session_show(struct seq_file *m, void *data)
 	return 0;
 }
 
+static int rga_ctx_manager_show(struct seq_file *m, void *data)
+{
+	int id, i;
+	struct rga_pending_ctx_manager *ctx_manager;
+	struct rga_internal_ctx_t *ctx;
+	struct rga_req *cached_cmd;
+	unsigned long flags;
+	int cmd_num = 0;
+	int finished_job_count = 0;
+
+	ctx_manager = rga_drvdata->pend_ctx_manager;
+
+	seq_puts(m, "rga internal ctx dump:\n");
+	seq_printf(m, "ctx count = %d\n", ctx_manager->ctx_count);
+	seq_puts(m, "===============================================================\n");
+
+	mutex_lock(&ctx_manager->lock);
+
+	idr_for_each_entry(&ctx_manager->ctx_id_idr, ctx, id) {
+		seq_printf(m, "------------------ ctx: %d ------------------\n", ctx->id);
+
+		spin_lock_irqsave(&ctx->lock, flags);
+
+		cmd_num = ctx->cmd_num;
+		finished_job_count = ctx->finished_job_count;
+		cached_cmd = ctx->cached_cmd;
+
+		spin_unlock_irqrestore(&ctx->lock, flags);
+
+		if (cached_cmd == NULL) {
+			seq_puts(m, "\t can not find cached cmd from id\n");
+			continue;
+		}
+
+		seq_printf(m, "\t set cmd num: %d, finish job sum: %d\n",
+				cmd_num, finished_job_count);
+
+		seq_puts(m, "\t cmd dump:\n\n");
+
+		for (i = 0; i < ctx->cmd_num; i++)
+			rga_ctx_cache_cmd_debug_info(m, &(cached_cmd[i]));
+
+	}
+
+	mutex_unlock(&ctx_manager->lock);
+
+	return 0;
+}
+
+
 struct rga_debugger_list rga_debugger_root_list[] = {
 	{"debug", rga_debug_show, rga_debug_write, NULL},
 	{"driver_version", rga_version_show, NULL, NULL},
 	{"load", rga_load_show, NULL, NULL},
 	{"scheduler_status", rga_scheduler_show, NULL, NULL},
 	{"mm_session", rga_mm_session_show, NULL, NULL},
+	{"ctx_manager", rga_ctx_manager_show, NULL, NULL},
 };
 
 static ssize_t rga_debugger_write(struct file *file, const char __user *ubuf,
@@ -396,7 +470,7 @@ CREATE_FAIL:
 }
 #endif /* #ifdef CONFIG_ROCKCHIP_RGA_DEBUG_FS */
 
-#ifdef CONFIG_ROCKCHIP_RGA2_PROC_FS
+#ifdef CONFIG_ROCKCHIP_RGA_PROC_FS
 static int rga_procfs_open(struct inode *inode, struct file *file)
 {
 	struct rga_debugger_node *node = PDE_DATA(inode);
@@ -404,13 +478,12 @@ static int rga_procfs_open(struct inode *inode, struct file *file)
 	return single_open(file, node->info_ent->show, node);
 }
 
-static const struct file_operations rga_procfs_fops = {
-	.owner = THIS_MODULE,
-	.open = rga_procfs_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.write = rga_debugger_write,
+static const struct proc_ops rga_procfs_fops = {
+	.proc_open = rga_procfs_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+	.proc_write = rga_debugger_write,
 };
 
 static int rga_procfs_remove_files(struct rga_debugger *debugger)
@@ -523,9 +596,43 @@ CREATE_FAIL:
 }
 #endif /* #ifdef CONFIG_ROCKCHIP_RGA_PROC_FS */
 
+void rga_ctx_cache_cmd_debug_info(struct seq_file *m, struct rga_req *req)
+{
+	seq_printf(m, "\t\t rotate_mode = %d\n", req->rotate_mode);
+	seq_printf(m, "\t\t src: y = %lx uv = %lx v = %lx aw = %d ah = %d vw = %d vh = %d\n",
+		 (unsigned long)req->src.yrgb_addr, (unsigned long)req->src.uv_addr,
+		 (unsigned long)req->src.v_addr, req->src.act_w, req->src.act_h,
+		 req->src.vir_w, req->src.vir_h);
+	seq_printf(m, "\t\t src: xoff = %d, yoff = %d, format = 0x%x, rd_mode = %d\n",
+		req->src.x_offset, req->src.y_offset, req->src.format, req->src.rd_mode);
+
+	if (req->pat.yrgb_addr != 0 || req->pat.uv_addr != 0
+		|| req->pat.v_addr != 0) {
+		seq_printf(m, "\t\t pat: y=%lx uv=%lx v=%lx aw=%d ah=%d vw=%d vh=%d\n",
+			 (unsigned long)req->pat.yrgb_addr, (unsigned long)req->pat.uv_addr,
+			 (unsigned long)req->pat.v_addr, req->pat.act_w, req->pat.act_h,
+			 req->pat.vir_w, req->pat.vir_h);
+		seq_printf(m, "\t\t xoff = %d yoff = %d, format = 0x%x, rd_mode = %d\n",
+			req->pat.x_offset, req->pat.y_offset, req->pat.format, req->pat.rd_mode);
+	}
+
+	seq_printf(m, "\t\t dst: y=%lx uv=%lx v=%lx aw=%d ah=%d vw=%d vh=%d\n",
+		 (unsigned long)req->dst.yrgb_addr, (unsigned long)req->dst.uv_addr,
+		 (unsigned long)req->dst.v_addr, req->dst.act_w, req->dst.act_h,
+		 req->dst.vir_w, req->dst.vir_h);
+	seq_printf(m, "\t\t dst: xoff = %d, yoff = %d, format = 0x%x, rd_mode = %d\n",
+		req->dst.x_offset, req->dst.y_offset, req->dst.format, req->dst.rd_mode);
+
+	seq_printf(m, "\t\t mmu: mmu_flag=%x en=%x\n",
+		req->mmu_info.mmu_flag, req->mmu_info.mmu_en);
+	seq_printf(m, "\t\t alpha: rop_mode = %x\n", req->alpha_rop_mode);
+	seq_printf(m, "\t\t yuv2rgb mode is %x\n", req->yuv2rgb_mode);
+	seq_printf(m, "\t\t set core = %d, priority = %d, in_fence_fd = %d\n",
+		req->core, req->priority, req->in_fence_fd);
+}
+
 void rga_cmd_print_debug_info(struct rga_req *req)
 {
-	pr_info("============= start ==============\n");
 	pr_info("render_mode = %d, bitblit_mode=%d, rotate_mode = %d\n",
 		req->render_mode, req->bsfilter_flag,
 		req->rotate_mode);

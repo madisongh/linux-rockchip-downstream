@@ -79,6 +79,10 @@ static unsigned int rkisp_wait_line;
 module_param_named(wait_line, rkisp_wait_line, uint, 0644);
 MODULE_PARM_DESC(wait_line, "rkisp wait line to buf done early");
 
+static unsigned int rkisp_wrap_line;
+module_param_named(wrap_line, rkisp_wrap_line, uint, 0644);
+MODULE_PARM_DESC(wrap_line, "rkisp wrap line for mpp");
+
 static DEFINE_MUTEX(rkisp_dev_mutex);
 static LIST_HEAD(rkisp_device_list);
 
@@ -265,7 +269,8 @@ static int rkisp_pipeline_close(struct rkisp_pipeline *p)
 
 	atomic_dec(&p->power_cnt);
 
-	if (dev->isp_ver == ISP_V30 && !atomic_read(&p->power_cnt))
+	if (!atomic_read(&p->power_cnt) &&
+	    (dev->isp_ver == ISP_V30 || dev->isp_ver == ISP_V32))
 		rkisp_rx_buf_pool_free(dev);
 
 	return 0;
@@ -288,7 +293,9 @@ static int rkisp_pipeline_set_stream(struct rkisp_pipeline *p, bool on)
 		if (dev->vs_irq >= 0)
 			enable_irq(dev->vs_irq);
 		rockchip_set_system_status(SYS_STATUS_ISP);
-		v4l2_subdev_call(&dev->isp_sdev.sd, video, s_stream, true);
+		ret = v4l2_subdev_call(&dev->isp_sdev.sd, video, s_stream, true);
+		if (ret < 0)
+			goto err;
 		/* phy -> sensor */
 		for (i = 0; i < p->num_subdevs; ++i) {
 			ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
@@ -311,7 +318,9 @@ err_stream_off:
 	for (--i; i >= 0; --i)
 		v4l2_subdev_call(p->subdevs[i], video, s_stream, false);
 	v4l2_subdev_call(&dev->isp_sdev.sd, video, s_stream, false);
+err:
 	rockchip_clear_system_status(SYS_STATUS_ISP);
+	atomic_dec_return(&p->stream_cnt);
 	return ret;
 }
 
@@ -466,6 +475,23 @@ static int _set_pipeline_default_fmt(struct rkisp_device *dev)
 					 width, height, V4L2_PIX_FMT_NV12);
 #endif
 	}
+
+	if (dev->isp_ver == ISP_V32) {
+		struct v4l2_pix_format_mplane pixm = {
+			.width = width,
+			.height = height,
+			.pixelformat = rkisp_mbus_pixelcode_to_v4l2(code),
+		};
+
+		rkisp_dmarx_set_fmt(&dev->dmarx_dev.stream[RKISP_STREAM_RAWRD0], pixm);
+		rkisp_dmarx_set_fmt(&dev->dmarx_dev.stream[RKISP_STREAM_RAWRD2], pixm);
+		rkisp_set_stream_def_fmt(dev, RKISP_STREAM_BP,
+					 width, height, V4L2_PIX_FMT_NV12);
+		rkisp_set_stream_def_fmt(dev, RKISP_STREAM_MPDS,
+					 width / 4, height / 4, V4L2_PIX_FMT_NV12);
+		rkisp_set_stream_def_fmt(dev, RKISP_STREAM_BPDS,
+					 width / 4, height / 4, V4L2_PIX_FMT_NV12);
+	}
 	return 0;
 }
 
@@ -490,6 +516,7 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 			v4l2_err(&dev->v4l2_dev, "update sensor failed\n");
 			goto unlock;
 		}
+		dev->is_hw_link = true;
 	}
 
 	ret = _set_pipeline_default_fmt(dev);
@@ -551,9 +578,28 @@ static int rkisp_fwnode_parse(struct device *dev,
 	return 0;
 }
 
+static void subdev_notifier_unbind(struct v4l2_async_notifier *notifier,
+				   struct v4l2_subdev *subdev,
+				   struct v4l2_async_subdev *asd)
+{
+	struct rkisp_device *isp_dev = container_of(notifier, struct rkisp_device, notifier);
+	struct rkisp_isp_subdev *isp_sdev = &isp_dev->isp_sdev;
+	struct v4l2_subdev *isp_sd = &isp_sdev->sd;
+	int i;
+
+	for (i = 0; i < isp_dev->num_sensors; i++) {
+		if (isp_dev->sensors[i].sd == subdev) {
+			media_entity_call(&isp_sd->entity, link_setup,
+				isp_sd->entity.pads, subdev->entity.pads, 0);
+			isp_dev->sensors[i].sd = NULL;
+		}
+	}
+}
+
 static const struct v4l2_async_notifier_operations subdev_notifier_ops = {
 	.bound = subdev_notifier_bound,
 	.complete = subdev_notifier_complete,
+	.unbind = subdev_notifier_unbind,
 };
 
 static int isp_subdev_notifier(struct rkisp_device *isp_dev)
@@ -833,6 +879,9 @@ static int rkisp_plat_remove(struct platform_device *pdev)
 {
 	struct rkisp_device *isp_dev = platform_get_drvdata(pdev);
 
+	isp_dev->is_hw_link = false;
+	isp_dev->hw_dev->isp[isp_dev->dev_id] = NULL;
+
 	pm_runtime_disable(&pdev->dev);
 
 	rkisp_proc_cleanup(isp_dev);
@@ -867,6 +916,7 @@ static int __maybe_unused rkisp_runtime_resume(struct device *dev)
 	int ret;
 
 	isp_dev->cap_dev.wait_line = rkisp_wait_line;
+	isp_dev->cap_dev.wrap_line = rkisp_wrap_line;
 	mutex_lock(&isp_dev->hw_dev->dev_lock);
 	ret = pm_runtime_get_sync(isp_dev->hw_dev->dev);
 	mutex_unlock(&isp_dev->hw_dev->dev_lock);

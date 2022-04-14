@@ -39,18 +39,24 @@
 #define RK_BUFFER_ORDER			3
 #define RK_BUFFER_SIZE			(PAGE_SIZE << RK_BUFFER_ORDER)
 
+#define RK_DMA_ALIGNMENT		128
+#define sha384_state			sha512_state
+#define sha224_state			sha256_state
+
+#define RK_FLAG_FINAL			BIT(0)
+#define RK_FLAG_UPDATE			BIT(1)
+
 struct rk_crypto_soc_data {
+	const char			*crypto_ver;
 	char				**valid_algs_name;
 	int				valid_algs_num;
-	struct rk_crypto_algt		**total_algs;
-	int				total_algs_num;
-	const char * const		*rsts;
-	int				rsts_num;
 	unsigned int			hw_info_size;
 	bool				use_soft_aes192;
 	int				default_pka_offset;
 	int (*hw_init)(struct device *dev, void *hw_info);
 	void (*hw_deinit)(struct device *dev, void *hw_info);
+	const char * const *(*hw_get_rsts)(uint32_t *num);
+	struct rk_crypto_algt **(*hw_get_algts)(uint32_t *num);
 };
 
 struct rk_crypto_dev {
@@ -93,6 +99,12 @@ struct rk_alg_ops {
 	int (*update)(struct rk_crypto_dev *rk_dev);
 	void (*complete)(struct crypto_async_request *base, int err);
 	int (*irq_handle)(int irq, void *dev_id);
+
+	int (*hw_write_key)(struct rk_crypto_dev *rk_dev, const u8 *key, u32 key_len);
+	void (*hw_write_iv)(struct rk_crypto_dev *rk_dev, const u8 *iv, u32 iv_len);
+	int (*hw_init)(struct rk_crypto_dev *rk_dev, u32 algo, u32 type);
+	int (*hw_dma_start)(struct rk_crypto_dev *rk_dev, uint32_t flag);
+	int (*hw_get_result)(struct rk_crypto_dev *rk_dev, uint8_t *data, uint32_t data_len);
 };
 
 struct rk_alg_ctx {
@@ -123,6 +135,16 @@ struct rk_ahash_ctx {
 	struct rk_alg_ctx		algs_ctx;
 	struct rk_crypto_dev		*rk_dev;
 	u8				authkey[SHA512_BLOCK_SIZE];
+	u32				authkey_len;
+	struct scatterlist		hash_sg[2];
+	u8				*hash_tmp;
+	u32				hash_tmp_len;
+	u32				calc_cnt;
+
+	u8				lastc[RK_DMA_ALIGNMENT];
+	u32				lastc_len;
+
+	void				*priv;
 
 	/* for fallback */
 	struct crypto_ahash		*fallback_tfm;
@@ -130,9 +152,9 @@ struct rk_ahash_ctx {
 
 /* the privete variable of hash for fallback */
 struct rk_ahash_rctx {
-	struct rk_alg_ctx		algs_ctx;
 	struct ahash_request		fallback_req;
 	u32				mode;
+	u32				flag;
 };
 
 /* the private variable of cipher */
@@ -144,6 +166,8 @@ struct rk_cipher_ctx {
 	u32				mode;
 	u8				iv[AES_BLOCK_SIZE];
 	u8				lastc[AES_BLOCK_SIZE];
+	bool				is_enc;
+	void				*priv;
 
 	/* for fallback */
 	bool				fallback_key_inited;
@@ -184,7 +208,9 @@ struct rk_crypto_algt {
 enum rk_hash_algo {
 	HASH_ALGO_MD5,
 	HASH_ALGO_SHA1,
+	HASH_ALGO_SHA224,
 	HASH_ALGO_SHA256,
+	HASH_ALGO_SHA384,
 	HASH_ALGO_SHA512,
 	HASH_ALGO_SM3,
 };
@@ -294,7 +320,7 @@ enum rk_cipher_mode {
 					     CRYPTO_ALG_NEED_FALLBACK,\
 				.cra_blocksize = hash_algo##_BLOCK_SIZE,\
 				.cra_ctxsize = sizeof(struct rk_ahash_ctx),\
-				.cra_alignmask = 3,\
+				.cra_alignmask = 0,\
 				.cra_init = rk_cra_hash_init,\
 				.cra_exit = rk_cra_hash_exit,\
 				.cra_module = THIS_MODULE,\
@@ -328,7 +354,7 @@ enum rk_cipher_mode {
 					     CRYPTO_ALG_NEED_FALLBACK,\
 				.cra_blocksize = hash_algo##_BLOCK_SIZE,\
 				.cra_ctxsize = sizeof(struct rk_ahash_ctx),\
-				.cra_alignmask = 3,\
+				.cra_alignmask = 0,\
 				.cra_init = rk_cra_hash_init,\
 				.cra_exit = rk_cra_hash_exit,\
 				.cra_module = THIS_MODULE,\

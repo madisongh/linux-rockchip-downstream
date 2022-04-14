@@ -240,6 +240,9 @@ struct vop {
 	bool is_enabled;
 	bool support_multi_area;
 
+	bool aclk_rate_reset;
+	unsigned long aclk_rate;
+
 	u32 version;
 	u32 background;
 	u32 line_flag;
@@ -620,6 +623,29 @@ static enum vop_data_format vop_convert_format(uint32_t format)
 		DRM_ERROR("unsupported format[%08x]\n", format);
 		return -EINVAL;
 	}
+}
+
+static int vop_convert_afbc_format(uint32_t format)
+{
+	switch (format) {
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		return AFBDC_FMT_U8U8U8U8;
+	case DRM_FORMAT_RGB888:
+	case DRM_FORMAT_BGR888:
+		return AFBDC_FMT_U8U8U8;
+	case DRM_FORMAT_RGB565:
+	case DRM_FORMAT_BGR565:
+		return AFBDC_FMT_RGB565;
+	/* either of the below should not be reachable */
+	default:
+		DRM_WARN_ONCE("unsupported AFBC format[%08x]\n", format);
+		return -EINVAL;
+	}
+
+	return -EINVAL;
 }
 
 static bool is_uv_swap(uint32_t bus_format, uint32_t output_mode)
@@ -1575,6 +1601,18 @@ static void vop_initial(struct drm_crtc *crtc)
 	vop_enable_debug_irq(crtc);
 }
 
+static void vop_crtc_atomic_disable_for_psr(struct drm_crtc *crtc,
+					    struct drm_crtc_state *old_state)
+{
+	struct vop *vop = to_vop(crtc);
+
+	vop_disable_all_planes(vop);
+	drm_crtc_vblank_off(crtc);
+	vop->aclk_rate = clk_get_rate(vop->aclk);
+	clk_set_rate(vop->aclk, vop->aclk_rate / 3);
+	vop->aclk_rate_reset = true;
+}
+
 static void vop_crtc_atomic_disable(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_state)
 {
@@ -1583,6 +1621,11 @@ static void vop_crtc_atomic_disable(struct drm_crtc *crtc,
 				SYS_STATUS_LCDC1 : SYS_STATUS_LCDC0;
 
 	WARN_ON(vop->event);
+
+	if (crtc->state->self_refresh_active) {
+		vop_crtc_atomic_disable_for_psr(crtc, old_state);
+		goto out;
+	}
 
 	vop_lock(vop);
 	VOP_CTRL_SET(vop, reg_done_frm, 1);
@@ -1631,6 +1674,7 @@ static void vop_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	rockchip_clear_system_status(sys_status);
 
+out:
 	if (crtc->state->event && !crtc->state->active) {
 		spin_lock_irq(&crtc->dev->event_lock);
 		drm_crtc_send_vblank_event(crtc, crtc->state->event);
@@ -1654,6 +1698,21 @@ static void vop_plane_cleanup_fb(struct drm_plane *plane,
 {
 	if (old_state->fb)
 		drm_framebuffer_put(old_state->fb);
+}
+
+static bool rockchip_vop_mod_supported(struct drm_plane *plane,
+				       u32 format, u64 modifier)
+{
+	if (modifier == DRM_FORMAT_MOD_LINEAR)
+		return true;
+
+	if (!rockchip_afbc(plane, modifier)) {
+		DRM_DEBUG_KMS("Unsupported format modifier 0x%llx\n", modifier);
+
+		return false;
+	}
+
+	return vop_convert_afbc_format(format) >= 0;
 }
 
 static int vop_plane_atomic_check(struct drm_plane *plane,
@@ -2288,6 +2347,7 @@ static const struct drm_plane_funcs vop_plane_funcs = {
 	.atomic_destroy_state = vop_atomic_plane_destroy_state,
 	.atomic_set_property = vop_atomic_plane_set_property,
 	.atomic_get_property = vop_atomic_plane_get_property,
+	.format_mod_supported = rockchip_vop_mod_supported,
 };
 
 static int vop_crtc_enable_vblank(struct drm_crtc *crtc)
@@ -2591,10 +2651,10 @@ remove:
 }
 
 static enum drm_mode_status
-vop_crtc_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode,
-		    int output_type)
+vop_crtc_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode)
 {
 	struct vop *vop = to_vop(crtc);
+	struct rockchip_crtc_state *s = to_rockchip_crtc_state(crtc->state);
 	const struct vop_data *vop_data = vop->data;
 	int request_clock = mode->clock;
 	int clock;
@@ -2614,8 +2674,8 @@ vop_crtc_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode,
 	/*
 	 * Hdmi or DisplayPort request a Accurate clock.
 	 */
-	if (output_type == DRM_MODE_CONNECTOR_HDMIA ||
-	    output_type == DRM_MODE_CONNECTOR_DisplayPort)
+	if (s->output_type == DRM_MODE_CONNECTOR_HDMIA ||
+	    s->output_type == DRM_MODE_CONNECTOR_DisplayPort)
 		if (clock != request_clock)
 			return MODE_CLOCK_RANGE;
 
@@ -2857,16 +2917,50 @@ static void vop_crtc_send_mcu_cmd(struct drm_crtc *crtc,  u32 type, u32 value)
 		vop_set_out_mode(vop, state->output_mode);
 }
 
+static int vop_crtc_wait_vact_end(struct drm_crtc *crtc, unsigned int mstimeout)
+{
+	struct vop *vop = to_vop(crtc);
+	unsigned long jiffies_left;
+	int ret = 0;
+
+	if (!vop->is_enabled)
+		return -ENODEV;
+
+	mutex_lock(&vop->vop_lock);
+
+	if (vop_line_flag_irq_is_enabled(vop)) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	reinit_completion(&vop->line_flag_completion);
+	vop_line_flag_irq_enable(vop);
+
+	jiffies_left = wait_for_completion_timeout(&vop->line_flag_completion,
+						   msecs_to_jiffies(mstimeout));
+	vop_line_flag_irq_disable(vop);
+
+	if (jiffies_left == 0) {
+		DRM_DEV_ERROR(vop->dev, "timeout waiting for lineflag IRQ\n");
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
+out:
+	mutex_unlock(&vop->vop_lock);
+	return ret;
+}
+
 static const struct rockchip_crtc_funcs private_crtc_funcs = {
 	.loader_protect = vop_crtc_loader_protect,
 	.cancel_pending_vblank = vop_crtc_cancel_pending_vblank,
 	.debugfs_init = vop_crtc_debugfs_init,
 	.debugfs_dump = vop_crtc_debugfs_dump,
 	.regs_dump = vop_crtc_regs_dump,
-	.mode_valid = vop_crtc_mode_valid,
 	.bandwidth = vop_crtc_bandwidth,
 	.crtc_close = vop_crtc_close,
 	.crtc_send_mcu_cmd = vop_crtc_send_mcu_cmd,
+	.wait_vact_end = vop_crtc_wait_vact_end,
 };
 
 static bool vop_crtc_mode_fixup(struct drm_crtc *crtc,
@@ -3060,6 +3154,15 @@ static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 	bool interlaced = !!(adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE);
 	int for_ddr_freq = 0;
 	bool dclk_inv, yc_swap = false;
+
+	if (old_state && old_state->self_refresh_active) {
+		drm_crtc_vblank_on(crtc);
+		if (vop->aclk_rate_reset)
+			clk_set_rate(vop->aclk, vop->aclk_rate);
+		vop->aclk_rate_reset = false;
+
+		return;
+	}
 
 	rockchip_set_system_status(sys_status);
 	vop_lock(vop);
@@ -3842,6 +3945,7 @@ static void vop_crtc_atomic_flush(struct drm_crtc *crtc,
 
 static const struct drm_crtc_helper_funcs vop_crtc_helper_funcs = {
 	.mode_fixup = vop_crtc_mode_fixup,
+	.mode_valid = vop_crtc_mode_valid,
 	.atomic_check = vop_crtc_atomic_check,
 	.atomic_flush = vop_crtc_atomic_flush,
 	.atomic_enable = vop_crtc_atomic_enable,
@@ -4523,6 +4627,11 @@ static int vop_create_crtc(struct vop *vop)
 #undef VOP_ATTACH_MODE_CONFIG_PROP
 	vop_crtc_create_plane_mask_property(vop, crtc);
 	vop_crtc_create_feature_property(vop, crtc);
+	ret = drm_self_refresh_helper_init(crtc);
+	if (ret)
+		DRM_DEV_DEBUG_KMS(vop->dev,
+				  "Failed to init %s with SR helpers %d, ignoring\n",
+				  crtc->name, ret);
 
 	if (vop->lut_regs) {
 		u16 *r_base, *g_base, *b_base;
@@ -4573,6 +4682,8 @@ static void vop_destroy_crtc(struct vop *vop)
 	struct drm_crtc *crtc = &vop->rockchip_crtc.crtc;
 	struct drm_device *drm_dev = vop->drm_dev;
 	struct drm_plane *plane, *tmp;
+
+	drm_self_refresh_helper_cleanup(crtc);
 
 	of_node_put(crtc->port);
 
@@ -4720,55 +4831,6 @@ static int vop_win_init(struct vop *vop)
 
 	return 0;
 }
-
-/**
- * rockchip_drm_wait_vact_end
- * @crtc: CRTC to enable line flag
- * @mstimeout: millisecond for timeout
- *
- * Wait for vact_end line flag irq or timeout.
- *
- * Returns:
- * Zero on success, negative errno on failure.
- */
-int rockchip_drm_wait_vact_end(struct drm_crtc *crtc, unsigned int mstimeout)
-{
-	struct vop *vop = to_vop(crtc);
-	unsigned long jiffies_left;
-	int ret = 0;
-
-	if (!crtc || !vop->is_enabled)
-		return -ENODEV;
-
-	mutex_lock(&vop->vop_lock);
-	if (mstimeout <= 0) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (vop_line_flag_irq_is_enabled(vop)) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	reinit_completion(&vop->line_flag_completion);
-	vop_line_flag_irq_enable(vop);
-
-	jiffies_left = wait_for_completion_timeout(&vop->line_flag_completion,
-						   msecs_to_jiffies(mstimeout));
-	vop_line_flag_irq_disable(vop);
-
-	if (jiffies_left == 0) {
-		DRM_DEV_ERROR(vop->dev, "Timeout waiting for IRQ\n");
-		ret = -ETIMEDOUT;
-		goto out;
-	}
-
-out:
-	mutex_unlock(&vop->vop_lock);
-	return ret;
-}
-EXPORT_SYMBOL(rockchip_drm_wait_vact_end);
 
 static int vop_bind(struct device *dev, struct device *master, void *data)
 {

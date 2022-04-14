@@ -274,6 +274,8 @@ struct dw_mipi_dsi2 {
 	struct rockchip_drm_sub_dev sub_dev;
 
 	struct gpio_desc *te_gpio;
+	bool user_split_mode;
+	struct drm_property *user_split_mode_prop;
 };
 
 static inline struct dw_mipi_dsi2 *host_to_dsi2(struct mipi_dsi_host *host)
@@ -443,22 +445,29 @@ static void dw_mipi_dsi2_post_disable(struct dw_mipi_dsi2 *dsi2)
 static void dw_mipi_dsi2_encoder_disable(struct drm_encoder *encoder)
 {
 	struct dw_mipi_dsi2 *dsi2 = encoder_to_dsi2(encoder);
+	struct drm_crtc *crtc = encoder->crtc;
+	struct rockchip_crtc_state *s = to_rockchip_crtc_state(crtc->state);
 
 	if (dsi2->panel)
 		drm_panel_disable(dsi2->panel);
 
 	if (!(dsi2->mode_flags & MIPI_DSI_MODE_VIDEO))
-		vop2_standby(encoder->crtc, 1);
+		rockchip_drm_crtc_standby(encoder->crtc, 1);
 
 	dw_mipi_dsi2_disable(dsi2);
 
 	if (!(dsi2->mode_flags & MIPI_DSI_MODE_VIDEO))
-		vop2_standby(encoder->crtc, 0);
+		rockchip_drm_crtc_standby(encoder->crtc, 0);
 
 	if (dsi2->panel)
 		drm_panel_unprepare(dsi2->panel);
 
 	dw_mipi_dsi2_post_disable(dsi2);
+
+	if (!crtc->state->active_changed)
+		return;
+
+	s->output_if &= ~(dsi2->id ? VOP_OUTPUT_IF_MIPI1 : VOP_OUTPUT_IF_MIPI0);
 }
 
 static void dw_mipi_dsi2_set_lane_rate(struct dw_mipi_dsi2 *dsi2)
@@ -482,7 +491,7 @@ static void dw_mipi_dsi2_set_lane_rate(struct dw_mipi_dsi2 *dsi2)
 
 	/* optional override of the desired bandwidth */
 	if (!of_property_read_u32(dev->of_node, "rockchip,lane-rate", &value)) {
-		lane_rate = value * USEC_PER_SEC;
+		lane_rate = value * MSEC_PER_SEC;
 	} else {
 		tmp = (u64)mode->clock * 1000 * bpp;
 		do_div(tmp, lanes);
@@ -494,9 +503,15 @@ static void dw_mipi_dsi2_set_lane_rate(struct dw_mipi_dsi2 *dsi2)
 		if (dsi2->c_option)
 			tmp = DIV_ROUND_CLOSEST_ULL(tmp * 100, 228);
 
-		/* take 1 / 0.9, since Mbps must big than bandwidth of RGB */
-		tmp *= 10;
-		do_div(tmp, 9);
+		/* set BW a little larger only in video burst mode in
+		 * consideration of the protocol overhead and HS mode
+		 * switching to BLLP mode, take 1 / 0.9, since Mbps must
+		 * big than bandwidth of RGB
+		 */
+		if (dsi2->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+			tmp *= 10;
+			do_div(tmp, 9);
+		}
 
 		if (tmp > max_lane_rate)
 			lane_rate = max_lane_rate;
@@ -514,7 +529,7 @@ static void dw_mipi_dsi2_set_lane_rate(struct dw_mipi_dsi2 *dsi2)
 
 	phy_configure(dsi2->dcphy, &dsi2->phy_opts);
 	hs_clk_rate = dsi2->phy_opts.mipi_dphy.hs_clk_rate;
-	dsi2->lane_hs_rate = DIV_ROUND_UP(hs_clk_rate, USEC_PER_SEC);
+	dsi2->lane_hs_rate = DIV_ROUND_UP(hs_clk_rate, MSEC_PER_SEC);
 }
 
 static void dw_mipi_dsi2_host_softrst(struct dw_mipi_dsi2 *dsi2)
@@ -564,7 +579,7 @@ static void dw_mipi_dsi2_phy_clk_mode_cfg(struct dw_mipi_dsi2 *dsi2)
 static void dw_mipi_dsi2_phy_ratio_cfg(struct dw_mipi_dsi2 *dsi2)
 {
 	struct drm_display_mode *mode = &dsi2->mode;
-	u32 sys_clk = clk_get_rate(dsi2->sys_clk) / MSEC_PER_SEC;
+	u64 sys_clk = clk_get_rate(dsi2->sys_clk);
 	u64 pixel_clk, ipi_clk, phy_hsclk;
 	u64 tmp;
 
@@ -579,7 +594,7 @@ static void dw_mipi_dsi2_phy_ratio_cfg(struct dw_mipi_dsi2 *dsi2)
 		phy_hsclk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate * MSEC_PER_SEC, 16);
 
 	/* IPI_RATIO_MAN_CFG = PHY_HSTX_CLK / IPI_CLK */
-	pixel_clk = mode->clock;
+	pixel_clk = mode->clock * MSEC_PER_SEC;
 	ipi_clk = pixel_clk / 4;
 
 	tmp = DIV_ROUND_CLOSEST_ULL(phy_hsclk << 16, ipi_clk);
@@ -600,7 +615,7 @@ static void dw_mipi_dsi2_lp2hs_or_hs2lp_cfg(struct dw_mipi_dsi2 *dsi2)
 	unsigned long long tmp, ui;
 	unsigned long long hstx_clk;
 
-	hstx_clk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate * USEC_PER_SEC, 16);
+	hstx_clk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate * MSEC_PER_SEC, 16);
 
 	ui = ALIGN(PSEC_PER_SEC, hstx_clk);
 	do_div(ui, hstx_clk);
@@ -689,8 +704,8 @@ static void dw_mipi_dsi2_ipi_set(struct dw_mipi_dsi2 *dsi2)
 	struct drm_display_mode *mode = &dsi2->mode;
 	u32 hline, hsa, hbp, hact;
 	u64 hline_time, hsa_time, hbp_time, hact_time, tmp;
+	u64 pixel_clk, phy_hs_clk;
 	u32 vact, vsa, vfp, vbp;
-	u32 pixel_clk, phy_hs_clk;
 	u16 val;
 
 	if (dsi2->slave || dsi2->master)
@@ -718,12 +733,12 @@ static void dw_mipi_dsi2_ipi_set(struct dw_mipi_dsi2 *dsi2)
 	hbp = mode->htotal - mode->hsync_end;
 	hline = mode->htotal;
 
-	pixel_clk = mode->clock / 1000;
+	pixel_clk = mode->clock * MSEC_PER_SEC;
 
 	if (dsi2->c_option)
-		phy_hs_clk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate, 7);
+		phy_hs_clk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate * MSEC_PER_SEC, 7);
 	else
-		phy_hs_clk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate, 16);
+		phy_hs_clk = DIV_ROUND_CLOSEST_ULL(dsi2->lane_hs_rate * MSEC_PER_SEC, 16);
 
 	tmp = hsa * phy_hs_clk;
 	hsa_time = DIV_ROUND_CLOSEST_ULL(tmp << 16, pixel_clk);
@@ -832,7 +847,7 @@ static void dw_mipi_dsi2_encoder_enable(struct drm_encoder *encoder)
 	DRM_DEV_INFO(dsi2->dev, "final DSI-Link bandwidth: %u x %d %s\n",
 		     dsi2->lane_hs_rate,
 		     dsi2->slave ? dsi2->lanes * 2 : dsi2->lanes,
-		     dsi2->c_option ? "Msps" : "Mbps");
+		     dsi2->c_option ? "Ksps" : "Kbps");
 }
 
 static int
@@ -867,7 +882,7 @@ dw_mipi_dsi2_encoder_atomic_check(struct drm_encoder *encoder,
 		s->bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 
 	s->output_type = DRM_MODE_CONNECTOR_DSI;
-	s->output_if = dsi2->id ? VOP_OUTPUT_IF_MIPI1 : VOP_OUTPUT_IF_MIPI0;
+	s->output_if |= dsi2->id ? VOP_OUTPUT_IF_MIPI1 : VOP_OUTPUT_IF_MIPI0;
 	s->bus_flags = info->bus_flags;
 
 	s->tv_state = &conn_state->tv;
@@ -1127,6 +1142,7 @@ static int dw_mipi_dsi2_bind(struct device *dev, struct device *master,
 	struct drm_encoder *encoder = &dsi2->encoder;
 	struct drm_connector *connector = &dsi2->connector;
 	struct device_node *of_node = dsi2->dev->of_node;
+	struct drm_property *prop;
 	int ret;
 
 	ret = dw_mipi_dsi2_dual_channel_probe(dsi2);
@@ -1166,11 +1182,24 @@ static int dw_mipi_dsi2_bind(struct device *dev, struct device *master,
 
 		drm_connector_helper_add(connector,
 					 &dw_mipi_dsi2_connector_helper_funcs);
-		drm_connector_attach_encoder(connector, encoder);
+		ret = drm_connector_attach_encoder(connector, encoder);
 		if (ret < 0) {
 			DRM_DEV_ERROR(dev, "Failed to attach encoder: %d\n", ret);
 			goto connector_cleanup;
 		}
+
+		prop = drm_property_create_bool(drm_dev, DRM_MODE_PROP_IMMUTABLE,
+						"USER_SPLIT_MODE");
+		if (!prop) {
+			ret = -EINVAL;
+			DRM_DEV_ERROR(dev, "create user split mode prop failed\n");
+			goto connector_cleanup;
+		}
+
+		dsi2->user_split_mode_prop = prop;
+		drm_object_attach_property(&dsi2->connector.base,
+					   dsi2->user_split_mode_prop,
+					   dsi2->user_split_mode ? 1 : 0);
 
 		dsi2->sub_dev.connector = &dsi2->connector;
 		dsi2->sub_dev.of_node = dev->of_node;
@@ -1428,6 +1457,7 @@ static int dw_mipi_dsi2_probe(struct platform_device *pdev)
 	dsi2->id = id;
 	dsi2->pdata = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, dsi2);
+	dsi2->user_split_mode = device_property_read_bool(dev, "user-split-mode");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regs = devm_ioremap_resource(dev, res);

@@ -630,6 +630,49 @@ static int dwc3_gadget_set_ep_config(struct dwc3_ep *dep, unsigned int action)
 }
 
 /**
+ * dwc3_gadget_get_tx_fifos_size - Get the txfifos total size
+ * @dwc: pointer to the DWC3 context
+ *
+ * 3-RAM configuration:
+ * RAM0 depth = Descriptor Cache depth
+ * RAM1 depth = TxFIFOs depth
+ * RAM2 depth = RxFIFOs depth
+ *
+ * 2-RAM configuration:
+ * RAM0 depth = Descriptor Cache depth + RxFIFOs depth
+ * RAM1 depth = TxFIFOs depth
+ *
+ * 1-RAM configuration:
+ * RAM0 depth = Descriptor Cache depth + RxFIFOs depth + TxFIFOs depth
+ */
+static int dwc3_gadget_get_tx_fifos_size(struct dwc3 *dwc)
+{
+	int txfifo_depth = 0;
+	int ram0_depth, rxfifo_size;
+
+	/* Get the depth of the TxFIFOs */
+	if (DWC3_NUM_RAMS(dwc->hwparams.hwparams1) > 1) {
+		/* For 2 or 3-RAM, RAM1 contains TxFIFOs */
+		txfifo_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
+	} else {
+		/* For 1-RAM, RAM0 contains Descriptor Cache, RxFIFOs, and TxFIFOs */
+		ram0_depth = DWC3_GHWPARAMS6_RAM0_DEPTH(dwc->hwparams.hwparams6);
+
+		/* All OUT endpoints share a single RxFIFO space */
+		rxfifo_size = dwc3_readl(dwc->regs, DWC3_GRXFIFOSIZ(0));
+		if (DWC3_IP_IS(DWC3))
+			txfifo_depth = ram0_depth - DWC3_GRXFIFOSIZ_RXFDEP(rxfifo_size);
+		else
+			txfifo_depth = ram0_depth - DWC31_GRXFIFOSIZ_RXFDEP(rxfifo_size);
+
+		/* The value of GRxFIFOSIZ0[31:16] is the depth of Descriptor Cache */
+		txfifo_depth -= DWC3_GRXFIFOSIZ_RXFSTADDR(rxfifo_size) >> 16;
+	}
+
+	return txfifo_depth;
+}
+
+/**
  * dwc3_gadget_calc_tx_fifo_size - calculates the txfifo size value
  * @dwc: pointer to the DWC3 context
  * @nfifos: number of fifos to calculate for
@@ -750,7 +793,7 @@ static int dwc3_gadget_resize_tx_fifos(struct dwc3_ep *dep)
 	if (dep->flags & DWC3_EP_TXFIFO_RESIZED)
 		return 0;
 
-	ram1_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
+	ram1_depth = dwc3_gadget_get_tx_fifos_size(dwc);
 
 	if ((dep->endpoint.maxburst > 1 &&
 	     usb_endpoint_xfer_bulk(dep->endpoint.desc)) ||
@@ -2428,7 +2471,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	 * Per databook, when we want to stop the gadget, if a control transfer
 	 * is still in process, complete it and get the core into setup phase.
 	 */
-	if (!is_on && dwc->ep0state != EP0_SETUP_PHASE) {
+	if (!is_on && dwc->ep0state != EP0_SETUP_PHASE &&
+	    dwc->ep0state != EP0_UNCONNECTED) {
 		reinit_completion(&dwc->ep0_in_setup);
 
 		ret = wait_for_completion_timeout(&dwc->ep0_in_setup,
@@ -2721,12 +2765,19 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	unsigned long		flags;
 
 	spin_lock_irqsave(&dwc->lock, flags);
+	if (!dwc->gadget_driver) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		dev_warn(dwc->dev, "%s is already stopped\n",
+			 dwc->gadget->name);
+		goto out;
+	}
 	dwc->gadget_driver	= NULL;
 	dwc->max_cfg_eps = 0;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	free_irq(dwc->irq_gadget, dwc->ev_buf);
 
+out:
 	return 0;
 }
 
@@ -2848,7 +2899,7 @@ static int dwc3_gadget_check_config(struct usb_gadget *g)
 	fifo_size += dwc->max_cfg_eps;
 
 	/* Check if we can fit a single fifo per endpoint */
-	ram1_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
+	ram1_depth = dwc3_gadget_get_tx_fifos_size(dwc);
 	if (fifo_size > ram1_depth)
 		return -ENOMEM;
 
@@ -4022,9 +4073,11 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 {
 	switch (event->type) {
 	case DWC3_DEVICE_EVENT_DISCONNECT:
+		dev_info(dwc->dev, "device disconnect\n");
 		dwc3_gadget_disconnect_interrupt(dwc);
 		break;
 	case DWC3_DEVICE_EVENT_RESET:
+		dev_info(dwc->dev, "device reset\n");
 		dwc3_gadget_reset_interrupt(dwc);
 		break;
 	case DWC3_DEVICE_EVENT_CONNECT_DONE:

@@ -11,6 +11,7 @@
 #include "rga_dma_buf.h"
 #include "rga_mm.h"
 #include "rga_job.h"
+#include "rga_common.h"
 
 extern struct rga2_mmu_info_t rga2_mmu_info;
 
@@ -407,7 +408,7 @@ static int rga2_mmu_flush_cache(struct rga2_mmu_other_t *reg,
 	DstPageCount = 0;
 	DstStart = 0;
 
-	scheduler = rga_job_get_scheduler(job->core);
+	scheduler = rga_job_get_scheduler(job);
 	if (scheduler == NULL) {
 		pr_err("failed to get scheduler, %s(%d)\n", __func__,
 				__LINE__);
@@ -562,7 +563,7 @@ static int rga2_mmu_info_BitBlt_mode(struct rga2_mmu_other_t *reg,
 
 	struct rga_scheduler_t *scheduler = NULL;
 
-	scheduler = rga_job_get_scheduler(job->core);
+	scheduler = rga_job_get_scheduler(job);
 	if (scheduler == NULL) {
 		pr_err("failed to get scheduler, %s(%d)\n", __func__,
 				__LINE__);
@@ -836,7 +837,7 @@ static int rga2_mmu_info_color_palette_mode(struct rga2_mmu_other_t *reg,
 		return -EINVAL;
 	}
 
-	scheduler = rga_job_get_scheduler(job->core);
+	scheduler = rga_job_get_scheduler(job);
 	if (scheduler == NULL) {
 		pr_err("failed to get scheduler, %s(%d)\n", __func__,
 				__LINE__);
@@ -1002,7 +1003,7 @@ static int rga2_mmu_info_color_fill_mode(struct rga2_mmu_other_t *reg,
 
 	struct rga_scheduler_t *scheduler = NULL;
 
-	scheduler = rga_job_get_scheduler(job->core);
+	scheduler = rga_job_get_scheduler(job);
 	if (scheduler == NULL) {
 		pr_err("failed to get scheduler, %s(%d)\n", __func__,
 				__LINE__);
@@ -1044,7 +1045,7 @@ static int rga2_mmu_info_color_fill_mode(struct rga2_mmu_other_t *reg,
 
 		if (DstMemSize) {
 			if (job->dst_buffer) {
-				switch (job->src_buffer->type) {
+				switch (job->dst_buffer->type) {
 				case RGA_DMA_BUFFER:
 					sgt = rga_mm_lookup_sgt(job->dst_buffer, scheduler->core);
 					if (sgt == NULL) {
@@ -1138,7 +1139,7 @@ static int rga2_mmu_info_update_palette_table_mode(struct rga2_mmu_other_t *reg,
 		return -EINVAL;
 	}
 
-	scheduler = rga_job_get_scheduler(job->core);
+	scheduler = rga_job_get_scheduler(job);
 	if (scheduler == NULL) {
 		pr_err("failed to get scheduler, %s(%d)\n", __func__,
 				__LINE__);

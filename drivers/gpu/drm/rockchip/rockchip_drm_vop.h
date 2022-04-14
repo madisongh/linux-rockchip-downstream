@@ -103,6 +103,12 @@ enum vop2_win_dly_mode {
 };
 
 /*
+ * vop2 dsc id
+ */
+#define ROCKCHIP_VOP2_DSC_8K	0
+#define ROCKCHIP_VOP2_DSC_4K	1
+
+/*
  * vop2 internal power domain id,
  * should be all none zero, 0 will be
  * treat as invalid;
@@ -113,7 +119,7 @@ enum vop2_win_dly_mode {
 #define VOP2_PD_CLUSTER3	BIT(3)
 #define VOP2_PD_DSC_8K		BIT(5)
 #define VOP2_PD_DSC_4K		BIT(6)
-#define VOP2_PD_ESMART0		BIT(7)
+#define VOP2_PD_ESMART		BIT(7)
 
 /*
  * vop2 submem power gate,
@@ -771,6 +777,12 @@ struct vop2_wb_regs {
 struct vop2_power_domain_data {
 	uint8_t id;
 	uint8_t parent_id;
+	/*
+	 * @module_id_mask: module id of which module this power domain is belongs to.
+	 * PD_CLUSTER0,1,2,3 only belongs to CLUSTER0/1/2/3, PD_Esmart0 shared by Esmart1/2/3
+	 */
+	uint32_t module_id_mask;
+
 	const struct vop2_power_domain_regs *regs;
 };
 
@@ -1353,7 +1365,6 @@ static inline int interpolate(int x1, int y1, int x2, int y2, int x)
 	return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
 }
 
-extern void vop2_standby(struct drm_crtc *crtc, bool standby);
 extern const struct component_ops vop_component_ops;
 extern const struct component_ops vop2_component_ops;
 #endif /* _ROCKCHIP_DRM_VOP_H */

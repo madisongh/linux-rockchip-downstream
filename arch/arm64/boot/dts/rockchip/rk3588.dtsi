@@ -374,8 +374,21 @@
 			 <&cru CLK_HDMITX1_EARC>,
 			 <&cru CLK_HDMITX1_REF>,
 			 <&cru MCLK_I2S6_8CH_TX>,
+			 <&cru DCLK_VOP0>,
+			 <&cru DCLK_VOP1>,
+			 <&cru DCLK_VOP2>,
+			 <&cru DCLK_VOP3>,
 			 <&hclk_vo1>;
-		clock-names = "pclk", "hpd", "earc", "hdmitx_ref", "aud", "hclk_vo1";
+		clock-names = "pclk",
+			      "hpd",
+			      "earc",
+			      "hdmitx_ref",
+			      "aud",
+			      "dclk_vp0",
+			      "dclk_vp1",
+			      "dclk_vp2",
+			      "dclk_vp3",
+			      "hclk_vo1";
 		resets = <&cru SRST_HDMITX1_REF>, <&cru SRST_HDMIHDP1>;
 		reset-names = "ref", "hdp";
 		power-domains = <&power RK3588_PD_VO1>;
@@ -465,23 +478,33 @@
 	};
 
 	hdmirx_ctrler: hdmirx-controller@fdee0000 {
-		compatible = "rk3588,hdmirx-ctrler", "rockchip,hdmirx-ctrler";
+		compatible = "rockchip,rk3588-hdmirx-ctrler", "rockchip,hdmirx-ctrler";
 		reg = <0x0 0xfdee0000 0x0 0x6000>;
 		reg-names = "hdmirx_regs";
 		power-domains = <&power RK3588_PD_VO1>;
 		rockchip,grf = <&sys_grf>;
 		rockchip,vo1_grf = <&vo1_grf>;
 		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "cec", "hdmi", "dma";
-		clocks = <&cru ACLK_HDMIRX>, <&cru CLK_HDMIRX_AUD>,
-			 <&cru CLK_CR_PARA>, <&cru PCLK_HDMIRX>,
-			 <&cru CLK_HDMIRX_REF>, <&hclk_vo1>;
-		clock-names = "aclk", "audio", "cr_para", "pclk", "ref", "hclk_vo1";
+		clocks = <&cru ACLK_HDMIRX>,
+			 <&cru CLK_HDMIRX_AUD>,
+			 <&cru CLK_CR_PARA>,
+			 <&cru PCLK_HDMIRX>,
+			 <&cru CLK_HDMIRX_REF>,
+			 <&cru PCLK_S_HDMIRX>,
+			 <&hclk_vo1>;
+		clock-names = "aclk",
+			      "audio",
+			      "cr_para",
+			      "pclk",
+			      "ref",
+			      "hclk_s_hdmirx",
+			      "hclk_vo1";
 		resets = <&cru SRST_A_HDMIRX>, <&cru SRST_P_HDMIRX>,
-			 <&cru SRST_HDMIRX_REF>;
-		reset-names = "rst_a", "rst_p", "rst_ref";
+			 <&cru SRST_HDMIRX_REF>, <&cru SRST_A_HDMIRX_BIU>;
+		reset-names = "rst_a", "rst_p", "rst_ref", "rst_biu";
 		pinctrl-0 = <&hdmim1_rx_cec &hdmim1_rx_hpdin &hdmim1_rx_scl &hdmim1_rx_sda>;
 		pinctrl-names = "default";
 		status = "disabled";
@@ -528,8 +551,8 @@
 		reg = <0x0 0xfe150000 0x0 0x10000>,
 		      <0xa 0x40000000 0x0 0x400000>;
 		reg-names = "pcie-apb", "pcie-dbi";
-		resets = <&cru SRST_PCIE0_POWER_UP>;
-		reset-names = "pipe";
+		resets = <&cru SRST_PCIE0_POWER_UP>, <&cru SRST_P_PCIE0>;
+		reset-names = "pcie", "periph";
 		rockchip,pipe-grf = <&php_grf>;
 		status = "disabled";
 
@@ -583,8 +606,8 @@
 		reg = <0x0 0xfe160000 0x0 0x10000>,
 		      <0xa 0x40400000 0x0 0x400000>;
 		reg-names = "pcie-apb", "pcie-dbi";
-		resets = <&cru SRST_PCIE1_POWER_UP>;
-		reset-names = "pipe";
+		resets = <&cru SRST_PCIE1_POWER_UP>, <&cru SRST_P_PCIE1>;
+		reset-names = "pcie", "periph";
 		rockchip,pipe-grf = <&php_grf>;
 		status = "disabled";
 
@@ -637,8 +660,8 @@
 		reg = <0x0 0xfe170000 0x0 0x10000>,
 		      <0xa 0x40800000 0x0 0x400000>;
 		reg-names = "pcie-apb", "pcie-dbi";
-		resets = <&cru SRST_PCIE2_POWER_UP>;
-		reset-names = "pipe";
+		resets = <&cru SRST_PCIE2_POWER_UP>, <&cru SRST_P_PCIE2>;
+		reset-names = "pcie", "periph";
 		rockchip,pipe-grf = <&php_grf>;
 		status = "disabled";
 

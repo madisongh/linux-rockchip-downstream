@@ -56,6 +56,33 @@ struct iommu_domain;
 #define DRM_FORMAT_NV30		fourcc_code('N', 'V', '3', '0') /* non-subsampled Cr:Cb plane */
 #endif
 
+#define RK_IF_PROP_COLOR_DEPTH		"color_depth"
+#define RK_IF_PROP_COLOR_FORMAT		"color_format"
+#define RK_IF_PROP_COLOR_DEPTH_CAPS	"color_depth_caps"
+#define RK_IF_PROP_COLOR_FORMAT_CAPS	"color_format_caps"
+
+enum rk_if_color_depth {
+	RK_IF_DEPTH_8,
+	RK_IF_DEPTH_10,
+	RK_IF_DEPTH_12,
+	RK_IF_DEPTH_16,
+	RK_IF_DEPTH_420_10,
+	RK_IF_DEPTH_420_12,
+	RK_IF_DEPTH_420_16,
+	RK_IF_DEPTH_6,
+	RK_IF_DEPTH_MAX,
+};
+
+enum rk_if_color_format {
+	RK_IF_FORMAT_RGB, /* default RGB */
+	RK_IF_FORMAT_YCBCR444, /* YCBCR 444 */
+	RK_IF_FORMAT_YCBCR422, /* YCBCR 422 */
+	RK_IF_FORMAT_YCBCR420, /* YCBCR 420 */
+	RK_IF_FORMAT_YCBCR_HQ, /* Highest subsampled YUV */
+	RK_IF_FORMAT_YCBCR_LQ, /* Lowest subsampled YUV */
+	RK_IF_FORMAT_MAX,
+};
+
 struct rockchip_drm_sub_dev {
 	struct list_head list;
 	struct drm_connector *connector;
@@ -133,6 +160,7 @@ struct rockchip_dsc_sink_cap {
 
 struct rockchip_crtc_state {
 	struct drm_crtc_state base;
+	int vp_id;
 	int output_type;
 	int output_mode;
 	int output_bpc;
@@ -313,6 +341,15 @@ struct next_hdr_sink_data {
  * @enable_vblank: enable crtc vblank irq.
  * @disable_vblank: disable crtc vblank irq.
  * @bandwidth: report present crtc bandwidth consume.
+ * @cancel_pending_vblank: cancel pending vblank.
+ * @debugfs_init: init crtc debugfs.
+ * @debugfs_dump: debugfs to dump crtc and plane state.
+ * @regs_dump: dump vop current register config.
+ * @mode_valid: verify that the current mode is supported.
+ * @crtc_close: close vop.
+ * @crtc_send_mcu_cmd: send mcu panel init cmd.
+ * @te_handler: soft te hand for cmd mode panel.
+ * @wait_vact_end: wait the last active line.
  */
 struct rockchip_crtc_funcs {
 	int (*loader_protect)(struct drm_crtc *crtc, bool on);
@@ -332,6 +369,8 @@ struct rockchip_crtc_funcs {
 	void (*crtc_close)(struct drm_crtc *crtc);
 	void (*crtc_send_mcu_cmd)(struct drm_crtc *crtc, u32 type, u32 value);
 	void (*te_handler)(struct drm_crtc *crtc);
+	int (*wait_vact_end)(struct drm_crtc *crtc, unsigned int mstimeout);
+	void (*crtc_standby)(struct drm_crtc *crtc, bool standby);
 };
 
 struct rockchip_dclk_pll {
@@ -406,6 +445,7 @@ int rockchip_drm_wait_vact_end(struct drm_crtc *crtc, unsigned int mstimeout);
 int rockchip_register_crtc_funcs(struct drm_crtc *crtc,
 				 const struct rockchip_crtc_funcs *crtc_funcs);
 void rockchip_unregister_crtc_funcs(struct drm_crtc *crtc);
+void rockchip_drm_crtc_standby(struct drm_crtc *crtc, bool standby);
 
 void rockchip_drm_register_sub_dev(struct rockchip_drm_sub_dev *sub_dev);
 void rockchip_drm_unregister_sub_dev(struct rockchip_drm_sub_dev *sub_dev);
@@ -448,4 +488,5 @@ extern struct platform_driver rk3066_hdmi_driver;
 extern struct platform_driver rockchip_rgb_driver;
 extern struct platform_driver dw_dp_driver;
 extern struct platform_driver vconn_platform_driver;
+extern struct platform_driver vvop_platform_driver;
 #endif /* _ROCKCHIP_DRM_DRV_H_ */

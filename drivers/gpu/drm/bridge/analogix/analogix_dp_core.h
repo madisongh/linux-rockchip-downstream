@@ -137,6 +137,7 @@ struct video_info {
 
 	int max_link_rate;
 	enum link_lane_count_type max_lane_count;
+	u32 lane_map[4];
 
 	bool video_bist_enable;
 };
@@ -174,18 +175,19 @@ struct analogix_dp_device {
 	bool                    force_hpd;
 	bool			fast_train_enable;
 	bool			psr_supported;
+	struct work_struct	modeset_retry_work;
 
 	struct mutex		panel_lock;
 	bool			panel_is_prepared;
 
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
 	struct analogix_dp_plat_data *plat_data;
+	struct extcon_dev *extcon;
 };
 
 /* analogix_dp_reg.c */
 void analogix_dp_enable_video_mute(struct analogix_dp_device *dp, bool enable);
 void analogix_dp_stop_video(struct analogix_dp_device *dp);
-void analogix_dp_lane_swap(struct analogix_dp_device *dp, bool enable);
 void analogix_dp_init_analog_param(struct analogix_dp_device *dp);
 void analogix_dp_init_interrupt(struct analogix_dp_device *dp);
 void analogix_dp_reset(struct analogix_dp_device *dp);
@@ -212,6 +214,7 @@ void analogix_dp_set_lane_count(struct analogix_dp_device *dp, u32 count);
 void analogix_dp_get_lane_count(struct analogix_dp_device *dp, u32 *count);
 void analogix_dp_enable_enhanced_mode(struct analogix_dp_device *dp,
 				      bool enable);
+bool analogix_dp_get_enhanced_mode(struct analogix_dp_device *dp);
 void analogix_dp_set_training_pattern(struct analogix_dp_device *dp,
 				      enum pattern_set pattern);
 void analogix_dp_set_lane_link_training(struct analogix_dp_device *dp);

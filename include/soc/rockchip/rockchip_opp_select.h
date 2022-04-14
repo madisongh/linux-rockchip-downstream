@@ -8,6 +8,12 @@
 
 #define VOLT_RM_TABLE_END	~1
 
+#define OPP_INTERMEDIATE_MASK	0x3f
+#define OPP_INTERMEDIATE_RATE	0x01
+#define OPP_SCALING_UP_RATE	0x02
+#define OPP_SCALING_UP_INTER	(OPP_INTERMEDIATE_RATE | OPP_SCALING_UP_RATE)
+#define OPP_SCALING_DOWN_INTER	OPP_INTERMEDIATE_RATE
+
 struct rockchip_opp_info;
 
 struct volt_rm_table {
@@ -20,7 +26,7 @@ struct rockchip_opp_data {
 			    int *bin, int *process);
 	int (*set_read_margin)(struct device *dev,
 			       struct rockchip_opp_info *opp_info,
-			       unsigned long volt);
+			       u32 rm);
 };
 
 struct rockchip_opp_info {
@@ -29,9 +35,14 @@ struct rockchip_opp_info {
 	struct regmap *grf;
 	struct regmap *dsu_grf;
 	struct clk_bulk_data *clks;
+	struct clk *scmi_clk;
+	/* The threshold frequency for set intermediate rate */
+	unsigned long intermediate_threshold_freq;
 	int num_clks;
-	unsigned long volt_rm;
+	/* The read margin for low voltage */
+	u32 low_rm;
 	u32 current_rm;
+	u32 target_rm;
 };
 
 #if IS_ENABLED(CONFIG_ROCKCHIP_OPP)
@@ -60,6 +71,17 @@ void rockchip_get_scale_volt_sel(struct device *dev, char *lkg_name,
 struct opp_table *rockchip_set_opp_prop_name(struct device *dev, int process,
 					     int volt_sel);
 int rockchip_adjust_power_scale(struct device *dev, int scale);
+int rockchip_get_read_margin(struct device *dev,
+			     struct rockchip_opp_info *opp_info,
+			     unsigned long volt, u32 *target_rm);
+int rockchip_set_read_margin(struct device *dev,
+			     struct rockchip_opp_info *opp_info, u32 rm,
+			     bool is_set_rm);
+int rockchip_set_intermediate_rate(struct device *dev,
+				   struct rockchip_opp_info *opp_info,
+				   struct clk *clk, unsigned long old_freq,
+				   unsigned long new_freq, bool is_scaling_up,
+				   bool is_set_clk);
 int rockchip_init_opp_table(struct device *dev,
 			    struct rockchip_opp_info *info,
 			    char *lkg_name, char *reg_name);
@@ -67,7 +89,7 @@ int rockchip_init_opp_table(struct device *dev,
 static inline int rockchip_of_get_leakage(struct device *dev, char *lkg_name,
 					  int *leakage)
 {
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 
 static inline void rockchip_of_get_lkg_sel(struct device *dev,
@@ -133,19 +155,42 @@ static inline struct opp_table *rockchip_set_opp_prop_name(struct device *dev,
 							   int process,
 							   int volt_sel)
 {
-	return ERR_PTR(-ENOTSUPP);
+	return ERR_PTR(-EOPNOTSUPP);
 }
 
 static inline int rockchip_adjust_power_scale(struct device *dev, int scale)
 {
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
+}
+
+static inline int rockchip_get_read_margin(struct device *dev,
+					   struct rockchip_opp_info *opp_info,
+					   unsigned long volt, u32 *target_rm)
+{
+	return -EOPNOTSUPP;
+}
+static inline int rockchip_set_read_margin(struct device *dev,
+					   struct rockchip_opp_info *opp_info,
+					   u32 rm, bool is_set_rm)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int
+rockchip_set_intermediate_rate(struct device *dev,
+			       struct rockchip_opp_info *opp_info,
+			       struct clk *clk, unsigned long old_freq,
+			       unsigned long new_freq, bool is_scaling_up,
+			       bool is_set_clk)
+{
+	return -EOPNOTSUPP;
 }
 
 static inline int rockchip_init_opp_table(struct device *dev,
 					  struct rockchip_opp_info *info,
 					  char *lkg_name, char *reg_name)
 {
-	return -ENOTSUPP;
+	return -EOPNOTSUPP;
 }
 
 #endif /* CONFIG_ROCKCHIP_OPP */

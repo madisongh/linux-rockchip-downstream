@@ -324,6 +324,16 @@ config VIDEO_BT866
 	  To compile this driver as a module, choose M here: the
 	  module will be called bt866.
 
+config VIDEO_EP9461E
+	tristate "Semiconn EP9461E decoder"
+	depends on I2C
+	select HDMI
+	help
+	  Support for the Semiconn EP9461E 4 HDMI switch.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ep9461e.
+
 config VIDEO_KS0127
 	tristate "KS0127 video decoder"
 	depends on VIDEO_V4L2 && I2C
@@ -403,6 +413,8 @@ config VIDEO_OTP_EEPROM
 	select V4L2_FWNODE
 	help
 	  This driver supports OTP load from eeprom.
+
+source "drivers/media/i2c/rk628/Kconfig"
 
 config VIDEO_SAA7110
 	tristate "Philips SAA7110 video decoder"
@@ -954,6 +966,14 @@ config VIDEO_IMX214
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx214.
+
+config VIDEO_IMX214_EEPROM
+	tristate "Sony imx214 sensor otp from eeprom support"
+	depends on VIDEO_V4L2 && I2C
+	depends on VIDEO_IMX214
+	select V4L2_FWNODE
+	help
+	  This driver supports IMX214 OTP load from eeprom.
 
 config VIDEO_IMX219
 	tristate "Sony IMX219 sensor support"
@@ -1637,6 +1657,45 @@ config VIDEO_MT9V111
 	  To compile this driver as a module, choose M here: the
 	  module will be called mt9v111.
 
+config VIDEO_SC3336
+	tristate "SmartSens SC4336 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC3336 camera.
+
+config VIDEO_SC4336
+	tristate "SmartSens SC4336 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC4336 camera.
+
+config VIDEO_SC530AI
+	tristate "SmartSens SC530AI sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC530AI camera.
+
+config VIDEO_SENSOR_ADAPTER
+	tristate "Rockchip sensor driver adapter"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver adapter for other platform.
+
 config VIDEO_SR030PC30
 	tristate "Siliconfile SR030PC30 sensor support"
 	depends on I2C && VIDEO_V4L2
@@ -1675,6 +1734,15 @@ config VIDEO_RJ54N1
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called rj54n1.
+
+config VIDEO_S5K3L6XX
+	tristate "Samsung S5K3L6XX sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the Samsung
+	  S5K3L6XX camera.
 
 config VIDEO_S5K6AA
 	tristate "Samsung S5K6AAFX sensor support"
@@ -1793,6 +1861,17 @@ config VIDEO_DW9807_VCM
 	help
 	  This is a driver for the DW9807 camera lens voice coil.
 	  DW9807 is a 10 bit DAC with 100mA output current sink
+	  capability. This is designed for linear control of
+	  voice coil motors, controlled via I2C serial interface.
+
+config VIDEO_FP5510
+	tristate "FP5510 lens voice coil support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a driver for the FP5510 camera lens voice coil.
+	  FP5510 is a 10 bit DAC with 100mA output current sink
 	  capability. This is designed for linear control of
 	  voice coil motors, controlled via I2C serial interface.
 

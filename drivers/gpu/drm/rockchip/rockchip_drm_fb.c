@@ -52,10 +52,9 @@ static void rockchip_drm_fb_destroy(struct drm_framebuffer *fb)
 static const struct drm_framebuffer_funcs rockchip_drm_fb_funcs = {
 	.destroy       = rockchip_drm_fb_destroy,
 	.create_handle = drm_gem_fb_create_handle,
-	.dirty	       = drm_atomic_helper_dirtyfb,
 };
 
-static struct drm_framebuffer *
+struct drm_framebuffer *
 rockchip_fb_alloc(struct drm_device *dev, const struct drm_mode_fb_cmd2 *mode_cmd,
 		  struct drm_gem_object **obj, unsigned int num_planes)
 {

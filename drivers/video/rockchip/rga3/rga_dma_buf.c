@@ -9,29 +9,25 @@
 
 #include "rga_dma_buf.h"
 #include "rga.h"
-#include "rga_hw_config.h"
+#include "rga_common.h"
 #include "rga_job.h"
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0) && \
+    LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#include <linux/dma-noncoherent.h>
+#endif
 
 /**
  * rga_dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
  *                    page flags.
  * @dir: Direction of DMA transfer
  * @coherent: Is the DMA master cache-coherent?
- * @attrs: DMA attributes for the mapping
  *
  * Return: corresponding IOMMU API page protection flags
  */
-static int rga_dma_info_to_prot(enum dma_data_direction dir, bool coherent,
-				 unsigned long attrs)
+static int rga_dma_info_to_prot(enum dma_data_direction dir, bool coherent)
 {
 	int prot = coherent ? IOMMU_CACHE : 0;
-
-	if (attrs & DMA_ATTR_PRIVILEGED)
-		prot |= IOMMU_PRIV;
-	if (attrs & DMA_ATTR_SYS_CACHE_ONLY)
-		prot |= IOMMU_SYS_CACHE;
-	if (attrs & DMA_ATTR_SYS_CACHE_ONLY_NWA)
-		prot |= IOMMU_SYS_CACHE_NWA;
 
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
@@ -57,14 +53,14 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 	uint32_t pageCount;
 
 	switch (format) {
-	case RGA2_FORMAT_RGBA_8888:
-	case RGA2_FORMAT_RGBX_8888:
-	case RGA2_FORMAT_BGRA_8888:
-	case RGA2_FORMAT_BGRX_8888:
-	case RGA2_FORMAT_ARGB_8888:
-	case RGA2_FORMAT_XRGB_8888:
-	case RGA2_FORMAT_ABGR_8888:
-	case RGA2_FORMAT_XBGR_8888:
+	case RGA_FORMAT_RGBA_8888:
+	case RGA_FORMAT_RGBX_8888:
+	case RGA_FORMAT_BGRA_8888:
+	case RGA_FORMAT_BGRX_8888:
+	case RGA_FORMAT_ARGB_8888:
+	case RGA_FORMAT_XRGB_8888:
+	case RGA_FORMAT_ABGR_8888:
+	case RGA_FORMAT_XBGR_8888:
 		stride = (w * 4 + 3) & (~3);
 		size_yrgb = stride * h;
 		start = yrgb_addr >> PAGE_SHIFT;
@@ -72,8 +68,8 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_RGB_888:
-	case RGA2_FORMAT_BGR_888:
+	case RGA_FORMAT_RGB_888:
+	case RGA_FORMAT_BGR_888:
 		stride = (w * 3 + 3) & (~3);
 		size_yrgb = stride * h;
 		start = yrgb_addr >> PAGE_SHIFT;
@@ -81,16 +77,16 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_RGB_565:
-	case RGA2_FORMAT_RGBA_5551:
-	case RGA2_FORMAT_RGBA_4444:
-	case RGA2_FORMAT_BGR_565:
-	case RGA2_FORMAT_BGRA_5551:
-	case RGA2_FORMAT_BGRA_4444:
-	case RGA2_FORMAT_ARGB_5551:
-	case RGA2_FORMAT_ARGB_4444:
-	case RGA2_FORMAT_ABGR_5551:
-	case RGA2_FORMAT_ABGR_4444:
+	case RGA_FORMAT_RGB_565:
+	case RGA_FORMAT_RGBA_5551:
+	case RGA_FORMAT_RGBA_4444:
+	case RGA_FORMAT_BGR_565:
+	case RGA_FORMAT_BGRA_5551:
+	case RGA_FORMAT_BGRA_4444:
+	case RGA_FORMAT_ARGB_5551:
+	case RGA_FORMAT_ARGB_4444:
+	case RGA_FORMAT_ABGR_5551:
+	case RGA_FORMAT_ABGR_4444:
 		stride = (w * 2 + 3) & (~3);
 		size_yrgb = stride * h;
 		start = yrgb_addr >> PAGE_SHIFT;
@@ -100,8 +96,8 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		break;
 
 		/* YUV FORMAT */
-	case RGA2_FORMAT_YCbCr_422_SP:
-	case RGA2_FORMAT_YCrCb_422_SP:
+	case RGA_FORMAT_YCbCr_422_SP:
+	case RGA_FORMAT_YCrCb_422_SP:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = stride * h;
@@ -111,8 +107,8 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YCbCr_422_P:
-	case RGA2_FORMAT_YCrCb_422_P:
+	case RGA_FORMAT_YCbCr_422_P:
+	case RGA_FORMAT_YCrCb_422_P:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = ((stride >> 1) * h);
@@ -125,8 +121,8 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YCbCr_420_SP:
-	case RGA2_FORMAT_YCrCb_420_SP:
+	case RGA_FORMAT_YCbCr_420_SP:
+	case RGA_FORMAT_YCrCb_420_SP:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = (stride * (h >> 1));
@@ -136,8 +132,8 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YCbCr_420_P:
-	case RGA2_FORMAT_YCrCb_420_P:
+	case RGA_FORMAT_YCbCr_420_P:
+	case RGA_FORMAT_YCrCb_420_P:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = ((stride >> 1) * (h >> 1));
@@ -150,7 +146,7 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YCbCr_400:
+	case RGA_FORMAT_YCbCr_400:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		start = yrgb_addr >> PAGE_SHIFT;
@@ -158,7 +154,7 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_Y4:
+	case RGA_FORMAT_Y4:
 		stride = ((w + 3) & (~3)) >> 1;
 		size_yrgb = stride * h;
 		start = yrgb_addr >> PAGE_SHIFT;
@@ -166,10 +162,10 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YVYU_422:
-	case RGA2_FORMAT_VYUY_422:
-	case RGA2_FORMAT_YUYV_422:
-	case RGA2_FORMAT_UYVY_422:
+	case RGA_FORMAT_YVYU_422:
+	case RGA_FORMAT_VYUY_422:
+	case RGA_FORMAT_YUYV_422:
+	case RGA_FORMAT_UYVY_422:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = stride * h;
@@ -179,10 +175,10 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YVYU_420:
-	case RGA2_FORMAT_VYUY_420:
-	case RGA2_FORMAT_YUYV_420:
-	case RGA2_FORMAT_UYVY_420:
+	case RGA_FORMAT_YVYU_420:
+	case RGA_FORMAT_VYUY_420:
+	case RGA_FORMAT_YUYV_420:
+	case RGA_FORMAT_UYVY_420:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = (stride * (h >> 1));
@@ -192,8 +188,8 @@ int rga_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr,
 		end = (end + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		pageCount = end - start;
 		break;
-	case RGA2_FORMAT_YCbCr_420_SP_10B:
-	case RGA2_FORMAT_YCrCb_420_SP_10B:
+	case RGA_FORMAT_YCbCr_420_SP_10B:
+	case RGA_FORMAT_YCrCb_420_SP_10B:
 		stride = (w + 3) & (~3);
 		size_yrgb = stride * h;
 		size_uv = (stride * (h >> 1));
@@ -367,6 +363,9 @@ static dma_addr_t rga_iommu_dma_alloc_iova(struct iommu_domain *domain,
 	struct rga_iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
 	unsigned long shift, iova_len, iova = 0;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
+	dma_addr_t limit;
+#endif
 
 	shift = iova_shift(iovad);
 	iova_len = size >> shift;
@@ -379,12 +378,23 @@ static dma_addr_t rga_iommu_dma_alloc_iova(struct iommu_domain *domain,
 	if (iova_len < (1 << (IOVA_RANGE_CACHE_MAX_SIZE - 1)))
 		iova_len = roundup_pow_of_two(iova_len);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
 	dma_limit = min_not_zero(dma_limit, dev->bus_dma_limit);
+#else
+	if (dev->bus_dma_mask)
+		dma_limit &= dev->bus_dma_mask;
+#endif
 
 	if (domain->geometry.force_aperture)
 		dma_limit = min(dma_limit, (u64)domain->geometry.aperture_end);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 	iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift, true);
+#else
+	limit = min_t(dma_addr_t, dma_limit >> shift, iovad->end_pfn);
+
+	iova = alloc_iova_fast(iovad, iova_len, limit, true);
+#endif
 
 	return (dma_addr_t)iova << shift;
 }
@@ -396,6 +406,45 @@ static void rga_iommu_dma_free_iova(struct rga_iommu_dma_cookie *cookie,
 
 	free_iova_fast(iovad, iova_pfn(iovad, iova),
 		size >> iova_shift(iovad));
+}
+
+static inline size_t rga_iommu_map_sg(struct iommu_domain *domain,
+				      unsigned long iova, struct scatterlist *sg,
+				      unsigned int nents, int prot)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+	return iommu_map_sg_atomic(domain, iova, sg, nents, prot);
+#else
+	return iommu_map_sg(domain, iova, sg, nents, prot);
+#endif
+}
+
+static inline bool rga_dev_is_dma_coherent(struct device *dev)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
+	return dev_is_dma_coherent(dev);
+#else
+	return dev->archdata.dma_coherent;
+#endif
+}
+
+static inline struct iommu_domain *rga_iommu_get_dma_domain(struct device *dev)
+{
+	return iommu_get_domain_for_dev(dev);
+}
+
+static inline void rga_dma_flush_cache_by_sgt(struct sg_table *sgt)
+{
+	struct scatterlist *sg;
+	int i;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+	for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
+		arch_dma_prep_coherent(sg_page(sg), sg->length);
+#else
+	for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
+		__dma_flush_area(sg_page(sg), sg->length);
+#endif
 }
 
 static void rga_viraddr_put_channel_info(struct rga_dma_buffer_t **rga_dma_buffer)
@@ -443,10 +492,10 @@ int rga_iommu_map_virt_addr(struct rga_memory_parm *memory_parm,
 	dma_addr_t iova;
 	struct sg_table *sgt = NULL;
 
+	coherent = rga_dev_is_dma_coherent(rga_dev);
+	domain = rga_iommu_get_dma_domain(rga_dev);
+	ioprot = rga_dma_info_to_prot(DMA_BIDIRECTIONAL, coherent);
 
-	coherent = dev_is_dma_coherent(rga_dev);
-	ioprot = rga_dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, 0);
-	domain = iommu_get_dma_domain(rga_dev);
 	cookie = domain->iova_cookie;
 	iovad = &cookie->iovad;
 	size = iova_align(iovad, virt_dma_buf->size);
@@ -457,7 +506,7 @@ int rga_iommu_map_virt_addr(struct rga_memory_parm *memory_parm,
 	}
 
 	if (DEBUGGER_EN(MSG))
-		pr_debug("iova_align size = %ld", size);
+		pr_info("iova_align size = %ld", size);
 
 	iova = rga_iommu_dma_alloc_iova(domain, size, rga_dev->coherent_dma_mask, rga_dev);
 	if (!iova) {
@@ -465,15 +514,10 @@ int rga_iommu_map_virt_addr(struct rga_memory_parm *memory_parm,
 		return -ENOMEM;
 	}
 
-	if (!(ioprot & IOMMU_CACHE)) {
-		struct scatterlist *sg;
-		int i;
+	if (!(ioprot & IOMMU_CACHE))
+		rga_dma_flush_cache_by_sgt(sgt);
 
-		for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
-			arch_dma_prep_coherent(sg_page(sg), sg->length);
-	}
-
-	map_size = iommu_map_sg_atomic(domain, iova, sgt->sgl, sgt->orig_nents, ioprot);
+	map_size = rga_iommu_map_sg(domain, iova, sgt->sgl, sgt->orig_nents, ioprot);
 	if (map_size < size) {
 		pr_err("iommu can not map sgt to iova");
 		return -EINVAL;
@@ -489,7 +533,7 @@ int rga_iommu_map_virt_addr(struct rga_memory_parm *memory_parm,
 
 static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 					 struct rga_dma_buffer_t **rga_dma_buffer,
-					 int writeFlag, int core, struct mm_struct *mm)
+					 int writeFlag, struct rga_job *job, struct mm_struct *mm)
 {
 	struct rga_scheduler_t *scheduler = NULL;
 	struct rga_dma_buffer_t *alloc_buffer;
@@ -497,7 +541,8 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 	unsigned long size;
 	unsigned long start_addr;
 	unsigned int count;
-	int order = 0;
+	int pages_order = 0;
+	int page_table_order = 0;
 
 	uint32_t *page_table = NULL;
 	struct page **pages = NULL;
@@ -513,8 +558,6 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 	int ioprot;
 	dma_addr_t iova;
 
-	int format;
-
 	alloc_buffer =
 		kmalloc(sizeof(struct rga_dma_buffer_t),
 			GFP_KERNEL);
@@ -523,9 +566,7 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 		return -ENOMEM;
 	}
 
-	user_format_convert(&format, channel_info->format);
-
-	scheduler = rga_job_get_scheduler(core);
+	scheduler = rga_job_get_scheduler(job);
 	if (scheduler == NULL) {
 		pr_err("failed to get scheduler, %s(%d)\n", __func__,
 			__LINE__);
@@ -533,28 +574,30 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 		goto out_free_buffer;
 	}
 
-	coherent = dev_is_dma_coherent(scheduler->dev);
-	ioprot = rga_dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, 0);
-	domain = iommu_get_dma_domain(scheduler->dev);
+	coherent = rga_dev_is_dma_coherent(scheduler->dev);
+	domain = rga_iommu_get_dma_domain(scheduler->dev);
+	ioprot = rga_dma_info_to_prot(DMA_BIDIRECTIONAL, coherent);
 	cookie = domain->iova_cookie;
 	iovad = &cookie->iovad;
 
 	/* Calculate page size. */
 	count = rga_buf_size_cal(channel_info->yrgb_addr, channel_info->uv_addr,
-				 channel_info->v_addr, format,
+				 channel_info->v_addr, channel_info->format,
 				 channel_info->vir_w, channel_info->vir_h,
-				 &start_addr, &size);
+				 &start_addr, NULL);
+	size = count * PAGE_SIZE;
 
 	/* alloc pages and page_table */
-	order = get_order(size / 4096 * sizeof(struct page *));
-	pages = (struct page **)__get_free_pages(GFP_KERNEL, order);
+	pages_order = get_order(count * sizeof(struct page *));
+	pages = (struct page **)__get_free_pages(GFP_KERNEL, pages_order);
 	if (pages == NULL) {
 		pr_err("Can not alloc pages for pages\n");
 		ret = -ENOMEM;
 		goto out_free_buffer;
 	}
 
-	page_table = (uint32_t *)__get_free_pages(GFP_KERNEL, order);
+	page_table_order = get_order(count * sizeof(uint32_t *));
+	page_table = (uint32_t *)__get_free_pages(GFP_KERNEL, page_table_order);
 	if (page_table == NULL) {
 		pr_err("Can not alloc pages for page_table\n");
 		ret = -ENOMEM;
@@ -572,7 +615,7 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 	size = iova_align(iovad, size);
 
 	if (DEBUGGER_EN(MSG))
-		pr_err("iova_align size = %ld", size);
+		pr_info("iova_align size = %ld", size);
 
 	iova = rga_iommu_dma_alloc_iova(domain, size, scheduler->dev->coherent_dma_mask,
 					scheduler->dev);
@@ -589,22 +632,22 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 		goto out_free_sg;
 	}
 
-	if (!(ioprot & IOMMU_CACHE)) {
-		struct scatterlist *sg;
-		int i;
+	if (!(ioprot & IOMMU_CACHE))
+		rga_dma_flush_cache_by_sgt(&sgt);
 
-		for_each_sg(sgt.sgl, sg, sgt.orig_nents, i)
-			arch_dma_prep_coherent(sg_page(sg), sg->length);
-	}
-
-	map_size = iommu_map_sg_atomic(domain, iova, sgt.sgl, sgt.orig_nents, ioprot);
+	map_size = rga_iommu_map_sg(domain, iova, sgt.sgl, sgt.orig_nents, ioprot);
 	if (map_size < size) {
 		pr_err("iommu can not map sgt to iova");
 		ret = -EINVAL;
 		goto out_free_sg;
 	}
 
-	channel_info->yrgb_addr = iova;
+	/*
+	 * When the virtual address has an in-page offset, it needs to be offset to
+	 * the corresponding starting point.
+	 */
+	channel_info->yrgb_addr = iova + (channel_info->yrgb_addr & (~PAGE_MASK));
+
 	alloc_buffer->iova = iova;
 	alloc_buffer->size = size;
 	alloc_buffer->cookie = cookie;
@@ -613,8 +656,8 @@ static int rga_viraddr_get_channel_info(struct rga_img_info_t *channel_info,
 
 	sg_free_table(&sgt);
 
-	free_pages((unsigned long)pages, order);
-	free_pages((unsigned long)page_table, order);
+	free_pages((unsigned long)pages, pages_order);
+	free_pages((unsigned long)page_table, page_table_order);
 
 	*rga_dma_buffer = alloc_buffer;
 
@@ -625,113 +668,15 @@ out_free_sg:
 	rga_iommu_dma_free_iova(cookie, iova, size);
 
 out_free_pages_table:
-	free_pages((unsigned long)page_table, order);
+	free_pages((unsigned long)page_table, page_table_order);
 
 out_free_pages:
-	free_pages((unsigned long)pages, order);
+	free_pages((unsigned long)pages, pages_order);
 
 out_free_buffer:
 	kfree(alloc_buffer);
 
 	return ret;
-}
-
-static bool is_yuv422p_format(u32 format)
-{
-	bool ret = false;
-
-	switch (format) {
-	case RGA2_FORMAT_YCbCr_422_P:
-	case RGA2_FORMAT_YCrCb_422_P:
-		ret = true;
-		break;
-	}
-	return ret;
-}
-
-static void rga_convert_addr(struct rga_img_info_t *img, bool before_vir_get_channel)
-{
-	/*
-	 * If it is not using dma fd, the virtual/phyical address is assigned
-	 * to the address of the corresponding channel.
-	 */
-
-	//img->yrgb_addr = img->uv_addr;
-
-	/*
-	 * if before_vir_get_channel is true, then convert addr by default
-	 * when has iova (before_vir_get_channel is false),
-	 * need to consider whether fbc case
-	 */
-	if (img->rd_mode != RGA_FBC_MODE || before_vir_get_channel) {
-		img->uv_addr = img->yrgb_addr + (img->vir_w * img->vir_h);
-
-		//warning: rga3 may need /2 for all
-		if (is_yuv422p_format(img->format))
-			img->v_addr =
-				img->uv_addr + (img->vir_w * img->vir_h) / 2;
-		else
-			img->v_addr =
-				img->uv_addr + (img->vir_w * img->vir_h) / 4;
-	} else {
-		img->uv_addr = img->yrgb_addr;
-		img->v_addr = 0;
-	}
-}
-
-int rga_get_format_bits(u32 format)
-{
-	int bits = 0;
-
-	switch (format) {
-	case RGA2_FORMAT_RGBA_8888:
-	case RGA2_FORMAT_RGBX_8888:
-	case RGA2_FORMAT_BGRA_8888:
-	case RGA2_FORMAT_BGRX_8888:
-	case RGA2_FORMAT_ARGB_8888:
-	case RGA2_FORMAT_XRGB_8888:
-	case RGA2_FORMAT_ABGR_8888:
-	case RGA2_FORMAT_XBGR_8888:
-		bits = 32;
-		break;
-	case RGA2_FORMAT_RGB_888:
-	case RGA2_FORMAT_BGR_888:
-		bits = 24;
-		break;
-	case RGA2_FORMAT_RGB_565:
-	case RGA2_FORMAT_RGBA_5551:
-	case RGA2_FORMAT_RGBA_4444:
-	case RGA2_FORMAT_BGR_565:
-	case RGA2_FORMAT_YCbCr_422_SP:
-	case RGA2_FORMAT_YCbCr_422_P:
-	case RGA2_FORMAT_YCrCb_422_SP:
-	case RGA2_FORMAT_YCrCb_422_P:
-	case RGA2_FORMAT_BGRA_5551:
-	case RGA2_FORMAT_BGRA_4444:
-	case RGA2_FORMAT_ARGB_5551:
-	case RGA2_FORMAT_ARGB_4444:
-	case RGA2_FORMAT_ABGR_5551:
-	case RGA2_FORMAT_ABGR_4444:
-		bits = 16;
-		break;
-	case RGA2_FORMAT_YCbCr_420_SP:
-	case RGA2_FORMAT_YCbCr_420_P:
-	case RGA2_FORMAT_YCrCb_420_SP:
-	case RGA2_FORMAT_YCrCb_420_P:
-		bits = 12;
-		break;
-	case RGA2_FORMAT_YCbCr_420_SP_10B:
-	case RGA2_FORMAT_YCrCb_420_SP_10B:
-	case RGA2_FORMAT_YCbCr_422_SP_10B:
-	case RGA2_FORMAT_YCrCb_422_SP_10B:
-		bits = 15;
-		break;
-	default:
-		pr_err("unknown format [%d]\n", format);
-		return -1;
-	}
-
-	return bits;
 }
 
 static int rga_virtual_memory_check(void *vaddr, u32 w, u32 h, u32 format,
@@ -792,6 +737,53 @@ static int rga_dma_memory_check(struct rga_dma_buffer_t *rga_dma_buffer,
 	return ret;
 }
 
+int rga_dma_map_buf(struct dma_buf *dma_buf, struct rga_dma_buffer *rga_dma_buffer,
+		    enum dma_data_direction dir, struct device *rga_dev)
+{
+	struct dma_buf_attachment *attach = NULL;
+	struct sg_table *sgt = NULL;
+	int ret = 0;
+
+	if (dma_buf != NULL) {
+		get_dma_buf(dma_buf);
+	} else {
+		pr_err("dma_buf is Invalid[%p]\n", dma_buf);
+		return -EINVAL;
+	}
+
+	attach = dma_buf_attach(dma_buf, rga_dev);
+	if (IS_ERR(attach)) {
+		pr_err("Failed to attach dma_buf\n");
+		ret = -EINVAL;
+		goto err_get_attach;
+	}
+
+	sgt = dma_buf_map_attachment(attach, dir);
+	if (IS_ERR(sgt)) {
+		pr_err("Failed to map src attachment\n");
+		ret = -EINVAL;
+		goto err_get_sgt;
+	}
+
+	rga_dma_buffer->dma_buf = dma_buf;
+	rga_dma_buffer->attach = attach;
+	rga_dma_buffer->sgt = sgt;
+	rga_dma_buffer->iova = sg_dma_address(sgt->sgl);
+	rga_dma_buffer->size = sg_dma_len(sgt->sgl);
+	rga_dma_buffer->dir = dir;
+
+	return ret;
+
+err_get_sgt:
+	if (attach)
+		dma_buf_detach(dma_buf, attach);
+err_get_attach:
+	if (dma_buf)
+		dma_buf_put(dma_buf);
+
+	return ret;
+}
+
 int rga_dma_map_fd(int fd, struct rga_dma_buffer *rga_dma_buffer,
 		   enum dma_data_direction dir, struct device *rga_dev)
 {
@@ -840,7 +832,7 @@ err_get_attach:
 	return ret;
 }
 
-void rga_dma_unmap_fd(struct rga_dma_buffer *rga_dma_buffer)
+void rga_dma_unmap_buf(struct rga_dma_buffer *rga_dma_buffer)
 {
 	if (rga_dma_buffer->attach && rga_dma_buffer->sgt)
 		dma_buf_unmap_attachment(rga_dma_buffer->attach,
@@ -893,7 +885,7 @@ err_get_sg:
 	if (attach)
 		dma_buf_detach(dma_buf, attach);
 err_get_attach:
-	if (dma_buf && (rga_dma_buffer->use_dma_buf == false))
+	if (dma_buf)
 		dma_buf_put(dma_buf);
 
 	return ret;
@@ -912,7 +904,7 @@ static void rga_dma_unmap_buffer(struct rga_dma_buffer_t *rga_dma_buffer)
 
 static int rga_dma_buf_get_channel_info(struct rga_img_info_t *channel_info,
 			struct rga_dma_buffer_t **rga_dma_buffer, int mmu_flag,
-			struct dma_buf **dma_buf, int core)
+			struct dma_buf **dma_buf, struct rga_job *job)
 {
 	int ret;
 	struct rga_dma_buffer_t *alloc_buffer;
@@ -931,10 +923,9 @@ static int rga_dma_buf_get_channel_info(struct rga_img_info_t *channel_info,
 			return -ENOMEM;
 		}
 
-		alloc_buffer->use_dma_buf = false;
 		alloc_buffer->use_viraddr = false;
 
-		scheduler = rga_job_get_scheduler(core);
+		scheduler = rga_job_get_scheduler(job);
 		if (scheduler == NULL) {
 			pr_err("failed to get scheduler, %s(%d)\n", __func__,
 				 __LINE__);
@@ -971,7 +962,7 @@ static int rga_dma_buf_get_channel_info(struct rga_img_info_t *channel_info,
 	/* The value of dma_fd is no longer needed. */
 	channel_info->yrgb_addr = 0;
 
-	if (core == RGA3_SCHEDULER_CORE0 || core == RGA3_SCHEDULER_CORE1)
+	if (job->core == RGA3_SCHEDULER_CORE0 || job->core == RGA3_SCHEDULER_CORE1)
 		if (*rga_dma_buffer)
 			channel_info->yrgb_addr = (*rga_dma_buffer)->iova;
 
@@ -990,13 +981,14 @@ static void rga_dma_put_channel_info(struct rga_dma_buffer_t **rga_dma_buffer, s
 		return;
 
 	rga_dma_unmap_buffer(buffer);
-	if (*dma_buf)
+	if (*dma_buf) {
 		dma_buf_put(*dma_buf);
+		*dma_buf = NULL;
+	}
 
 	kfree(buffer);
 
 	*rga_dma_buffer = NULL;
-	*dma_buf = NULL;
 }
 
 int rga_dma_buf_get(struct rga_job *job)
@@ -1071,6 +1063,27 @@ int rga_dma_buf_get(struct rga_job *job)
 	return 0;
 }
 
+void rga_get_dma_buf(struct rga_job *job)
+{
+	int mmu_flag;
+
+	mmu_flag = ((job->rga_command_base.mmu_info.mmu_flag >> 8) & 1);
+	if (mmu_flag && job->dma_buf_src0)
+		get_dma_buf(job->dma_buf_src0);
+
+	mmu_flag = ((job->rga_command_base.mmu_info.mmu_flag >> 10) & 1);
+	if (mmu_flag && job->dma_buf_dst)
+		get_dma_buf(job->dma_buf_dst);
+
+	mmu_flag = ((job->rga_command_base.mmu_info.mmu_flag >> 9) & 1);
+	if (mmu_flag && job->dma_buf_src1)
+		get_dma_buf(job->dma_buf_src1);
+
+	mmu_flag = ((job->rga_command_base.mmu_info.mmu_flag >> 11) & 1);
+	if (mmu_flag && job->dma_buf_els)
+		get_dma_buf(job->dma_buf_els);
+}
+
 int rga_dma_get_info(struct rga_job *job)
 {
 	int ret = 0;
@@ -1093,22 +1106,19 @@ int rga_dma_get_info(struct rga_job *job)
 		if (job->dma_buf_src0 != NULL) {
 			ret = rga_dma_buf_get_channel_info(src0,
 				&job->rga_dma_buffer_src0, mmu_flag,
-				&job->dma_buf_src0, job->core);
+				&job->dma_buf_src0, job);
 
 			if (unlikely(ret < 0)) {
 				pr_err("src0 channel get info error!\n");
 				goto src0_channel_err;
 			}
-
-			if (src0->yrgb_addr <= 0)
-				job->rga_dma_buffer_src0->use_dma_buf = true;
 		} else {
 			src0->yrgb_addr = src0->uv_addr;
 			rga_convert_addr(src0, true);
 			if (job->core == RGA3_SCHEDULER_CORE0 || job->core == RGA3_SCHEDULER_CORE1) {
 				if (src0->yrgb_addr > 0 && mmu_flag) {
 					ret = rga_viraddr_get_channel_info(src0, &job->rga_dma_buffer_src0,
-						0, job->core, job->mm);
+						0, job, job->mm);
 
 					if (unlikely(ret < 0)) {
 						pr_err("src0 channel viraddr get info error!\n");
@@ -1127,22 +1137,19 @@ int rga_dma_get_info(struct rga_job *job)
 		if (job->dma_buf_dst != NULL) {
 			ret = rga_dma_buf_get_channel_info(dst,
 				&job->rga_dma_buffer_dst, mmu_flag,
-				&job->dma_buf_dst, job->core);
+				&job->dma_buf_dst, job);
 
 			if (unlikely(ret < 0)) {
 				pr_err("dst channel get info error!\n");
 				goto dst_channel_err;
 			}
-
-			if (dst->yrgb_addr <= 0)
-				job->rga_dma_buffer_dst->use_dma_buf = true;
 		} else {
 			dst->yrgb_addr = dst->uv_addr;
 			rga_convert_addr(dst, true);
 			if (job->core == RGA3_SCHEDULER_CORE0 || job->core == RGA3_SCHEDULER_CORE1) {
 				if (dst->yrgb_addr > 0 && mmu_flag) {
 					ret = rga_viraddr_get_channel_info(dst, &job->rga_dma_buffer_dst,
-						1, job->core, job->mm);
+						1, job, job->mm);
 
 					if (unlikely(ret < 0)) {
 						pr_err("dst channel viraddr get info error!\n");
@@ -1161,22 +1168,19 @@ int rga_dma_get_info(struct rga_job *job)
 		if (job->dma_buf_src1 != NULL) {
 			ret = rga_dma_buf_get_channel_info(src1,
 				&job->rga_dma_buffer_src1, mmu_flag,
-				&job->dma_buf_src1, job->core);
+				&job->dma_buf_src1, job);
 
 			if (unlikely(ret < 0)) {
 				pr_err("src1 channel get info error!\n");
 				goto src1_channel_err;
 			}
-
-			if (src1->yrgb_addr <= 0)
-				job->rga_dma_buffer_src1->use_dma_buf = true;
 		} else {
 			src1->yrgb_addr = src1->uv_addr;
 			rga_convert_addr(src1, true);
 			if (job->core == RGA3_SCHEDULER_CORE0 || job->core == RGA3_SCHEDULER_CORE1) {
 				if (src1->yrgb_addr > 0 && mmu_flag) {
 					ret = rga_viraddr_get_channel_info(src1, &job->rga_dma_buffer_src1,
-						0, job->core, job->mm);
+						0, job, job->mm);
 
 					if (unlikely(ret < 0)) {
 						pr_err("src1 channel viraddr get info error!\n");
@@ -1195,22 +1199,19 @@ int rga_dma_get_info(struct rga_job *job)
 		if (job->dma_buf_els != NULL) {
 			ret = rga_dma_buf_get_channel_info(els,
 				&job->rga_dma_buffer_els, mmu_flag,
-				&job->dma_buf_els, job->core);
+				&job->dma_buf_els, job);
 
 			if (unlikely(ret < 0)) {
 				pr_err("els channel get info error!\n");
 				goto els_channel_err;
 			}
-
-			if (els->yrgb_addr <= 0)
-				job->rga_dma_buffer_els->use_dma_buf = true;
 		} else {
 			els->yrgb_addr = els->uv_addr;
 			rga_convert_addr(els, true);
 			if (job->core == RGA3_SCHEDULER_CORE0 || job->core == RGA3_SCHEDULER_CORE1) {
 				if (els->yrgb_addr > 0 && mmu_flag) {
 					ret = rga_viraddr_get_channel_info(els, &job->rga_dma_buffer_els,
-						0, job->core, job->mm);
+						0, job, job->mm);
 
 					if (unlikely(ret < 0)) {
 						pr_err("els channel viraddr get info error!\n");

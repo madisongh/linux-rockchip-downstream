@@ -53,9 +53,11 @@ struct pvtm_config {
 	unsigned int num;
 	unsigned int err;
 	unsigned int ref_temp;
+	unsigned int offset;
 	int temp_prop[2];
 	const char *tz_name;
 	struct thermal_zone_device *tz;
+	struct regmap *grf;
 };
 
 struct lkg_conversion_table {
@@ -300,16 +302,8 @@ static int rockchip_parse_pvtm_config(struct device_node *np,
 		return -EINVAL;
 	if (of_property_read_u32(np, "rockchip,pvtm-volt", &pvtm->volt))
 		return -EINVAL;
-	if (of_property_read_u32_array(np, "rockchip,pvtm-ch", pvtm->ch, 2))
-		return -EINVAL;
-	if (pvtm->ch[0] >= PVTM_CH_MAX || pvtm->ch[1] >= PVTM_SUB_CH_MAX)
-		return -EINVAL;
 	if (of_property_read_u32(np, "rockchip,pvtm-sample-time",
 				 &pvtm->sample_time))
-		return -EINVAL;
-	if (of_property_read_u32(np, "rockchip,pvtm-number", &pvtm->num))
-		return -EINVAL;
-	if (of_property_read_u32(np, "rockchip,pvtm-error", &pvtm->err))
 		return -EINVAL;
 	if (of_property_read_u32(np, "rockchip,pvtm-ref-temp", &pvtm->ref_temp))
 		return -EINVAL;
@@ -326,6 +320,23 @@ static int rockchip_parse_pvtm_config(struct device_node *np,
 	if (IS_ERR(pvtm->tz))
 		return -EINVAL;
 	if (!pvtm->tz->ops->get_temp)
+		return -EINVAL;
+	if (of_property_read_bool(np, "rockchip,pvtm-pvtpll")) {
+		if (of_property_read_u32(np, "rockchip,pvtm-offset",
+					 &pvtm->offset))
+			return -EINVAL;
+		pvtm->grf = syscon_regmap_lookup_by_phandle(np, "rockchip,grf");
+		if (IS_ERR(pvtm->grf))
+			return -EINVAL;
+		return 0;
+	}
+	if (of_property_read_u32_array(np, "rockchip,pvtm-ch", pvtm->ch, 2))
+		return -EINVAL;
+	if (pvtm->ch[0] >= PVTM_CH_MAX || pvtm->ch[1] >= PVTM_SUB_CH_MAX)
+		return -EINVAL;
+	if (of_property_read_u32(np, "rockchip,pvtm-number", &pvtm->num))
+		return -EINVAL;
+	if (of_property_read_u32(np, "rockchip,pvtm-error", &pvtm->err))
 		return -EINVAL;
 
 	return 0;
@@ -697,6 +708,82 @@ next:
 EXPORT_SYMBOL(rockchip_of_get_lkg_sel);
 
 
+static int rockchip_get_pvtm_pvtpll(struct device *dev, struct device_node *np,
+				    char *reg_name)
+{
+	struct regulator *reg;
+	struct clk *clk;
+	struct pvtm_config *pvtm;
+	unsigned long old_freq;
+	unsigned int old_volt;
+	int cur_temp, diff_temp, prop_temp, diff_value;
+	int pvtm_value = 0;
+	int ret = 0;
+
+	pvtm = kzalloc(sizeof(*pvtm), GFP_KERNEL);
+	if (!pvtm)
+		return -ENOMEM;
+
+	ret = rockchip_parse_pvtm_config(np, pvtm);
+	if (ret)
+		goto out;
+
+	clk = clk_get(dev, NULL);
+	if (IS_ERR_OR_NULL(clk)) {
+		dev_warn(dev, "Failed to get clk\n");
+		goto out;
+	}
+
+	reg = regulator_get_optional(dev, reg_name);
+	if (IS_ERR_OR_NULL(reg)) {
+		dev_warn(dev, "Failed to get reg\n");
+		clk_put(clk);
+		goto out;
+	}
+	old_freq = clk_get_rate(clk);
+	old_volt = regulator_get_voltage(reg);
+
+	ret = clk_set_rate(clk, pvtm->freq * 1000);
+	if (ret) {
+		dev_err(dev, "Failed to set pvtm freq\n");
+		goto put_reg;
+	}
+	ret = regulator_set_voltage(reg, pvtm->volt, pvtm->volt);
+	if (ret) {
+		dev_err(dev, "Failed to set pvtm_volt\n");
+		goto restore_clk;
+	}
+	usleep_range(pvtm->sample_time, pvtm->sample_time + 100);
+
+	ret = regmap_read(pvtm->grf, pvtm->offset, &pvtm_value);
+	if (ret < 0) {
+		dev_err(dev, "failed to get pvtm from 0x%x\n", pvtm->offset);
+		goto resetore_volt;
+	}
+	pvtm->tz->ops->get_temp(pvtm->tz, &cur_temp);
+	diff_temp = (cur_temp / 1000 - pvtm->ref_temp);
+	if (diff_temp < 0)
+		prop_temp = pvtm->temp_prop[0];
+	else
+		prop_temp = pvtm->temp_prop[1];
+	diff_value = diff_temp * prop_temp / 1000;
+	pvtm_value += diff_value;
+
+	dev_info(dev, "pvtm=%d\n", pvtm_value);
+
+resetore_volt:
+	regulator_set_voltage(reg, old_volt, old_volt);
+restore_clk:
+	clk_set_rate(clk, old_freq);
+put_reg:
+	regulator_put(reg);
+	clk_put(clk);
+out:
+	kfree(pvtm);
+
+	return pvtm_value;
+}
+
 static int rockchip_get_pvtm(struct device *dev, struct device_node *np,
 			     char *reg_name)
 {
@@ -752,7 +839,10 @@ void rockchip_of_get_pvtm_sel(struct device *dev, struct device_node *np,
 	char name[NAME_MAX];
 	int pvtm, ret;
 
-	pvtm = rockchip_get_pvtm(dev, np, reg_name);
+	if (of_property_read_bool(np, "rockchip,pvtm-pvtpll"))
+		pvtm = rockchip_get_pvtm_pvtpll(dev, np, reg_name);
+	else
+		pvtm = rockchip_get_pvtm(dev, np, reg_name);
 	if (pvtm <= 0)
 		return;
 
@@ -934,8 +1024,9 @@ static int rockchip_adjust_opp_by_irdrop(struct device *dev,
 	struct sel_table *irdrop_table = NULL;
 	struct opp_table *opp_table;
 	struct dev_pm_opp *opp;
+	unsigned long tmp_safe_rate = 0;
 	int evb_irdrop = 0, board_irdrop, delta_irdrop;
-	int tmp_safe_rate = 0, opp_rate, i, ret = 0;
+	int opp_rate, i, ret = 0;
 	u32 max_volt = UINT_MAX;
 	bool reach_max_volt = false;
 
@@ -951,6 +1042,8 @@ static int rockchip_adjust_opp_by_irdrop(struct device *dev,
 
 	mutex_lock(&opp_table->lock);
 	list_for_each_entry(opp, &opp_table->opp_list, node) {
+		if (!opp->available)
+			continue;
 		if (!irdrop_table) {
 			delta_irdrop = 0;
 		} else {
@@ -1019,6 +1112,8 @@ static void rockchip_adjust_opp_by_mbist_vmin(struct device *dev,
 
 	mutex_lock(&opp_table->lock);
 	list_for_each_entry(opp, &opp_table->opp_list, node) {
+		if (!opp->available)
+			continue;
 		if (opp->supplies->u_volt < vmin) {
 			opp->supplies->u_volt = vmin;
 			opp->supplies->u_volt_min = vmin;
@@ -1048,7 +1143,7 @@ static int rockchip_adjust_opp_table(struct device *dev,
 			goto out;
 		}
 		if (opp->rate > scale_rate)
-			dev_pm_opp_remove(dev, opp->rate);
+			dev_pm_opp_disable(dev, opp->rate);
 		dev_pm_opp_put(opp);
 	}
 out:
@@ -1142,6 +1237,90 @@ out_np:
 }
 EXPORT_SYMBOL(rockchip_adjust_power_scale);
 
+int rockchip_get_read_margin(struct device *dev,
+			     struct rockchip_opp_info *opp_info,
+			     unsigned long volt, u32 *target_rm)
+{
+	int i;
+
+	if (!opp_info || !opp_info->volt_rm_tbl)
+		return 0;
+
+	for (i = 0; opp_info->volt_rm_tbl[i].rm != VOLT_RM_TABLE_END; i++) {
+		if (volt >= opp_info->volt_rm_tbl[i].volt) {
+			opp_info->target_rm = opp_info->volt_rm_tbl[i].rm;
+			break;
+		}
+	}
+	*target_rm = opp_info->target_rm;
+
+	return 0;
+}
+EXPORT_SYMBOL(rockchip_get_read_margin);
+
+int rockchip_set_read_margin(struct device *dev,
+			     struct rockchip_opp_info *opp_info, u32 rm,
+			     bool is_set_rm)
+{
+	if (!is_set_rm || !opp_info)
+		return 0;
+	if (!opp_info || !opp_info->volt_rm_tbl)
+		return 0;
+	if (!opp_info->data || !opp_info->data->set_read_margin)
+		return 0;
+	if (rm == opp_info->current_rm)
+		return 0;
+
+	return opp_info->data->set_read_margin(dev, opp_info, rm);
+}
+EXPORT_SYMBOL(rockchip_set_read_margin);
+
+int rockchip_set_intermediate_rate(struct device *dev,
+				   struct rockchip_opp_info *opp_info,
+				   struct clk *clk, unsigned long old_freq,
+				   unsigned long new_freq, bool is_scaling_up,
+				   bool is_set_clk)
+{
+	if (!is_set_clk)
+		return 0;
+	if (!opp_info || !opp_info->volt_rm_tbl)
+		return 0;
+	if (!opp_info->data || !opp_info->data->set_read_margin)
+		return 0;
+	if (opp_info->target_rm == opp_info->current_rm)
+		return 0;
+	/*
+	 * There is no need to set intermediate rate if the new voltage
+	 * and the current voltage are high voltage.
+	 */
+	if ((opp_info->target_rm < opp_info->low_rm) &&
+	    (opp_info->current_rm < opp_info->low_rm))
+		return 0;
+
+	if (is_scaling_up) {
+		/*
+		 * If scaling up and the current frequency is less than
+		 * or equal to intermediate threshold frequency, there is
+		 * no need to set intermediate rate.
+		 */
+		if (opp_info->intermediate_threshold_freq &&
+		    old_freq <= opp_info->intermediate_threshold_freq)
+			return 0;
+		return clk_set_rate(clk, new_freq | OPP_SCALING_UP_INTER);
+	}
+	/*
+	 * If scaling down and the new frequency is less than or equal to
+	 * intermediate threshold frequency , there is no need to set
+	 * intermediate rate and set the new frequency directly.
+	 */
+	if (opp_info->intermediate_threshold_freq &&
+	    new_freq <= opp_info->intermediate_threshold_freq)
+		return clk_set_rate(clk, new_freq);
+
+	return clk_set_rate(clk, new_freq | OPP_SCALING_DOWN_INTER);
+}
+EXPORT_SYMBOL(rockchip_set_intermediate_rate);
+
 int rockchip_init_opp_table(struct device *dev, struct rockchip_opp_info *info,
 			    char *lkg_name, char *reg_name)
 {
@@ -1149,6 +1328,7 @@ int rockchip_init_opp_table(struct device *dev, struct rockchip_opp_info *info,
 	int bin = -EINVAL, process = -EINVAL;
 	int scale = 0, volt_sel = -EINVAL;
 	int ret = 0, num_clks = 0, i;
+	u32 freq;
 
 	/* Get OPP descriptor node */
 	np = of_parse_phandle(dev->of_node, "operating-points-v2", 0);
@@ -1177,6 +1357,11 @@ int rockchip_init_opp_table(struct device *dev, struct rockchip_opp_info *info,
 			}
 		}
 		info->num_clks = num_clks;
+		ret = clk_bulk_prepare_enable(info->num_clks, info->clks);
+		if (ret) {
+			dev_err(dev, "failed to enable opp clks\n");
+			goto out;
+		}
 	}
 	if (info->data && info->data->set_read_margin) {
 		info->current_rm = UINT_MAX;
@@ -1185,6 +1370,11 @@ int rockchip_init_opp_table(struct device *dev, struct rockchip_opp_info *info,
 			info->grf = NULL;
 		rockchip_get_volt_rm_table(dev, np, "volt-mem-read-margin",
 					   &info->volt_rm_tbl);
+		of_property_read_u32(np, "low-volt-mem-read-margin",
+				     &info->low_rm);
+		if (!of_property_read_u32(np, "intermediate-threshold-freq",
+					  &freq))
+			info->intermediate_threshold_freq = freq * 1000;
 	}
 	if (info->data && info->data->get_soc_info)
 		info->data->get_soc_info(dev, np, &bin, &process);
@@ -1196,9 +1386,13 @@ next:
 	ret = dev_pm_opp_of_add_table(dev);
 	if (ret) {
 		dev_err(dev, "Invalid operating-points in device tree.\n");
-		goto out;
+		goto dis_opp_clk;
 	}
 	rockchip_adjust_power_scale(dev, scale);
+
+dis_opp_clk:
+	if (info && info->clks)
+		clk_bulk_disable_unprepare(info->num_clks, info->clks);
 out:
 	of_node_put(np);
 
