@@ -8,11 +8,11 @@
 
 #include "roc-rk3588s-pc.dtsi"
 #include "rk3588-roc-pc-cam-8ms1m.dtsi"
-#include "rk3588-android.dtsi"
+#include "rk3588-linux.dtsi"
 #define WHICHDSI 0 /* dsi0 = 0,dsi1 = 1*/
 
 / {
-	model = "Firefly ROC-RK3588S-PC HDMI(Android)";
+	model = "Firefly ROC-RK3588S-PC HDMI(Linux)";
 	compatible = "rockchip,roc-rk3588s-pc", "rockchip,rk3588";
 
 #if WHICHDSI     
@@ -106,6 +106,7 @@
 
 };
 
+
 #if WHICHDSI 
 
 &pwm13 {
@@ -138,6 +139,16 @@
     status = "disabled";
 };
 
+&lcd_rst{
+	status = "okay";
+	gpio = <&gpio4 RK_PA6 GPIO_ACTIVE_HIGH>;
+};
+
+&lcd_en{
+	status = "okay";
+	gpio = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
+};
+
 &dsi1 {
     status = "okay";
     //rockchip,lane-rate = <1000>;
@@ -147,8 +158,8 @@
         reg = <0>;
         backlight = <&backlight_1>;        
 
-        enable-gpios = <&gpio4 RK_PA6 GPIO_ACTIVE_HIGH>;
-        reset-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_LOW>;
+        //enable-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
+        //reset-gpios = <&gpio4 RK_PA6 GPIO_ACTIVE_LOW>;
 
         enable-delay-ms = <50>;
         prepare-delay-ms = <200>;
@@ -275,6 +286,16 @@
     status = "disabled";
 };
 
+&lcd_rst {
+	status = "okay";
+	gpio = <&gpio1 RK_PA1 GPIO_ACTIVE_HIGH>;
+};
+
+&lcd_en {
+	status = "okay";
+	gpio = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
+};
+
 &dsi0 {
     status = "okay";
     //rockchip,lane-rate = <1000>;
@@ -284,8 +305,8 @@
         reg = <0>;
         backlight = <&backlight>;
         
-        enable-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
-        reset-gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;
+        //enable-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
+        //reset-gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;
 
         enable-delay-ms = <50>;
         prepare-delay-ms = <200>;

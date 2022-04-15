@@ -63,6 +63,33 @@
 			regulator-off-in-suspend;
 		};
 	};
+
+	lcd_rst: lcd_rst {
+		status = "disabled";
+		compatible = "regulator-fixed";
+		regulator-name = "lcd_rst";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio1 RK_PA1 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <2000>;
+		vin-supply = <&vcc12v_dcin>;
+	};
+
+	lcd_en: lcd_en {
+		status = "disabled";
+		compatible = "regulator-fixed";
+		regulator-name = "lcd_en";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&vcc12v_dcin>;
+	};
 };
 
 /* es8323 audio codec */
