@@ -4307,7 +4307,7 @@ static const struct regval xc7160_1080p_t20211011_regs[] = {
   {0x0004,0xf0}, //影响帧率	                                               
               
   {0xfffe,0x30},                                                           
-  {0x006c,0x80}, //pixel_order                                             
+  {0x006c,0xa0}, //pixel_order //YUYV 0x80 / UYVY 0xa0
   {0x1800,0x10},                                                           
  
   {0xfffe,0x50},		                                                       
