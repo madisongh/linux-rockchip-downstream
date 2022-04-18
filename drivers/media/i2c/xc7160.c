@@ -977,11 +977,11 @@ static int xc7160_s_power(struct v4l2_subdev *sd, int on)
 			dev_err(dev, "xc7160 power on failed\n");
 		}
 		xc7160->power_on = true;
-
+/*
 		if(xc7160->initial_status != true){
 			ret = camera_isp_sensor_initial(xc7160);
 		}
-
+*/
 		ret = xc7160_check_isp_id(xc7160,xc7160->client);
 		if (ret){
 			dev_err(dev, "write XC7160_REG_HIGH_SELECT failed\n");

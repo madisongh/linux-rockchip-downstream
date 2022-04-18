@@ -13,15 +13,6 @@
 		rockchip,camera-module-index = <0>;
 		rockchip,camera-module-facing = "back";
 	};
-	vcc_mipidphy0: vcc-mipidcphy0-regulator {
-		status = "disabled";
-		compatible = "regulator-fixed";
-		gpio = <&gpio1 RK_PB1 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&mipidphy0_pwr>;
-		regulator-name = "vcc_mipidphy0";
-		enable-active-high;
-	};
 };
 
 &csi2_dphy0 {
@@ -70,11 +61,9 @@
                pinctrl-0 = <&mipim0_camera3_clk>;
                power-domains = <&power RK3588_PD_VI>;
 
-               power-gpios = <&gpio1 RK_PB1 GPIO_ACTIVE_LOW>;
                reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
                pwdn-gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_HIGH>;
 
-               //avdd-supply = <&vcc_mipidcphy0>;
                firefly,clkout-enabled-index = <0>;
                rockchip,camera-module-index = <0>;
                rockchip,camera-module-facing = "back";
