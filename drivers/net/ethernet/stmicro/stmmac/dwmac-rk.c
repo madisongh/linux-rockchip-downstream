@@ -1967,6 +1967,10 @@ static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
 		}
 	} else {
 		if (bsp_priv->clk_enabled) {
+			if (bsp_priv->ops && bsp_priv->ops->set_clock_selection)
+				bsp_priv->ops->set_clock_selection(bsp_priv,
+					      bsp_priv->clock_input, false);
+
 			if (phy_iface == PHY_INTERFACE_MODE_RMII) {
 				clk_disable_unprepare(bsp_priv->mac_clk_rx);
 
@@ -1987,9 +1991,6 @@ static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
 
 			clk_disable_unprepare(bsp_priv->pclk_xpcs);
 
-			if (bsp_priv->ops && bsp_priv->ops->set_clock_selection)
-				bsp_priv->ops->set_clock_selection(bsp_priv,
-					      bsp_priv->clock_input, false);
 			/**
 			 * if (!IS_ERR(bsp_priv->clk_mac))
 			 *	clk_disable_unprepare(bsp_priv->clk_mac);
