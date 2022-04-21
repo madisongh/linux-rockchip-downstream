@@ -1602,6 +1602,13 @@ config GPIO_VIPERBOARD
 
 endmenu
 
+config GPIO_FIREFLY
+    tristate "Firefly GPIO Demo support"
+    default y
+    help
+        Sample code of gpio
+
+
 config GPIO_AGGREGATOR
 	tristate "GPIO Aggregator"
 	help

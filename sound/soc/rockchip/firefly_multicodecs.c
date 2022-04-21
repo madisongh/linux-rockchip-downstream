@@ -54,6 +54,12 @@ enum INPUT_DEV{
 	INPUT_LIN2_DIFF,   //mic differential
 };
 
+enum LINEIN_TYPE{
+	LINEIN_TYPE0,    //ITX-3588J USE
+	LINEIN_TYPE1,    //ROC-RK3588S-PC USE
+	LINEIN_TYPE2,    //AIO-3588SJD4 USE
+};
+
 #define POLL_VAL 80
 #define INPUT_LIN1_ADC 900
 #define INPUT_LIN2_ADC 5
@@ -73,6 +79,7 @@ struct multicodecs_data {
 	struct delayed_work mic_work;
 	unsigned int mclk_fs;
 	bool codec_hp_det;
+	u32 linein_type;     //0:ITX-3588J(mic) 1:ROC-RK3588S-PC(mic)
 	u32 last_key;
 	u32 mic_status;
 	u32 keyup_voltage;
@@ -87,24 +94,76 @@ static struct snd_soc_jack_pin jack_pins[] = {
 	}, {
 		.pin = "Headset Mic",
 		.mask = SND_JACK_MICROPHONE,
+	}, {
+		.pin = "Speaker",
+		.mask = SND_JACK_LINEOUT,
 	},
 };
 
-static struct snd_soc_jack_zone headset_zones[] = {
+struct jack_zone {
+	unsigned int min_mv;
+	unsigned int max_mv;
+	unsigned int type;
+};
+
+static struct jack_zone lin1_lin2_zone[] ={
 	{
 		.min_mv = 0,
-		.max_mv = 222,
-		.jack_type = SND_JACK_HEADPHONE,
+		.max_mv = 100,
+		.type = INPUT_LIN1,
 	}, {
-		.min_mv = 223,
-		.max_mv = 1500,
-		.jack_type = SND_JACK_HEADSET,
+		.min_mv = 1250,
+		.max_mv = 1350,
+		.type = INPUT_LIN1,
 	}, {
-		.min_mv = 1501,
+		.min_mv = 1550,
 		.max_mv = UINT_MAX,
-		.jack_type = SND_JACK_HEADPHONE,
+		.type = INPUT_LIN2_DIFF,
 	}
 };
+
+static struct jack_zone lin1_lin2_lin2diff_zone[] ={
+	{
+		.min_mv = 0,
+		.max_mv = 100,
+		.type = INPUT_LIN2,
+	}, {
+		.min_mv = 800,
+		.max_mv = 1000,
+		.type = INPUT_LIN1,
+	}, {
+		.min_mv = 1700,
+		.max_mv = UINT_MAX,
+		.type = INPUT_LIN2_DIFF,
+	}
+};
+
+static struct jack_zone lin0_lin1_zone[] ={
+	{
+		.min_mv = 0,
+		.max_mv = 100,
+		.type = INPUT_LIN1,
+	}, {
+		.min_mv = 800,
+		.max_mv = 1000,
+		.type = INPUT_LIN2,
+	}, {
+		.min_mv = 1700,
+		.max_mv = UINT_MAX,
+		.type = INPUT_LIN2_DIFF,
+	}
+};
+
+static int jack_get_type(struct jack_zone *zone, int count, int micbias_voltage)
+{
+	int i;
+	for(i = 0; i< count; i++){
+		if (micbias_voltage >= zone[i].min_mv &&
+			micbias_voltage < zone[i].max_mv)
+				return zone[i].type;
+	}
+	return 0;
+}
 
 static const unsigned int headset_extcon_cable[] = {
 	EXTCON_JACK_MICROPHONE,
@@ -125,14 +184,14 @@ static void mic_det_work(struct work_struct *work)
 		value = mc_data->keyup_voltage;
 		status = INPUT_LIN2_DIFF;
 	} else {
-		//printk("mic_det_work value:%d\n",value);
-		if(value <= POLL_VAL){
-			status= INPUT_LIN2;
-		}else if((INPUT_LIN1_ADC - POLL_VAL <= value) && (value <= INPUT_LIN1_ADC + POLL_VAL)){
-			status= INPUT_LIN1;
+		if(mc_data->linein_type == LINEIN_TYPE1){
+			status = jack_get_type(lin1_lin2_zone,ARRAY_SIZE(lin1_lin2_zone),value);
+		}else if (mc_data->linein_type == LINEIN_TYPE2){
+			status = jack_get_type(lin0_lin1_zone,ARRAY_SIZE(lin0_lin1_zone),value);
 		}else{
-			status= INPUT_LIN2_DIFF;
+			status = jack_get_type(lin1_lin2_lin2diff_zone,ARRAY_SIZE(lin1_lin2_lin2diff_zone),value);		
 		}
+		//printk("mic_det_work value:%d,status:%d\n",value,status);
 	}
 
 	if(mc_data->mic_status != status || first_init_status == 0 ){
@@ -146,7 +205,6 @@ static void mic_det_work(struct work_struct *work)
 		mc_data->mic_status = status;
 		first_init_status = 1;
 	}
-
 	queue_delayed_work(system_freezable_wq, &mc_data->mic_work, msecs_to_jiffies(500));
 }
 
@@ -168,6 +226,7 @@ static void adc_jack_handler(struct work_struct *work)
 
 	if (!gpiod_get_value(mc_data->hp_det_gpio)) {
 		snd_soc_jack_report(jack_headset, 0, SND_JACK_HEADSET);
+		snd_soc_jack_report(jack_headset, SND_JACK_LINEOUT, SND_JACK_LINEOUT);
 		extcon_set_state_sync(mc_data->extcon,
 				EXTCON_JACK_HEADPHONE, false);
 		extcon_set_state_sync(mc_data->extcon,
@@ -177,6 +236,7 @@ static void adc_jack_handler(struct work_struct *work)
 
 	/* no ADC, so is headphone */
 	snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
+	snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
 	extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
 	extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);
 	return;
@@ -305,10 +365,6 @@ static int rk_dailink_init(struct snd_soc_pcm_runtime *rtd)
 				    SND_JACK_HEADSET,
 				    jack_headset,
 				    jack_pins, ARRAY_SIZE(jack_pins));
-	if (ret)
-		return ret;
-	ret = snd_soc_jack_add_zones(jack_headset, ARRAY_SIZE(headset_zones),
-				     headset_zones);
 	if (ret)
 		return ret;
 
@@ -568,6 +624,9 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 	mc_data->mclk_fs = DEFAULT_MCLK_FS;
 	if (!of_property_read_u32(np, "rockchip,mclk-fs", &val))
 		mc_data->mclk_fs = val;
+
+	if (!of_property_read_u32(np, "linein-type", &val))
+		mc_data->linein_type = val;
 
 	mc_data->codec_hp_det =
 		of_property_read_bool(np, "rockchip,codec-hp-det");
