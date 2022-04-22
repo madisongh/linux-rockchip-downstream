@@ -345,6 +345,15 @@
 	sbu2-dc-gpios = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
 };
 
+&dfi {
+	status = "okay";
+};
+
+&dmc {
+	center-supply = <&vdd_ddr_s0>;
+	status = "okay";
+};
+
 &pinctrl {
 	leds {
 		led_user: led-user {
