@@ -86,7 +86,7 @@
 
 #define DRIVER_MAJOR_VERISON		1
 #define DRIVER_MINOR_VERSION		2
-#define DRIVER_REVISION_VERSION		7
+#define DRIVER_REVISION_VERSION		9
 
 #define DRIVER_VERSION (STR(DRIVER_MAJOR_VERISON) "." STR(DRIVER_MINOR_VERSION) \
 			"." STR(DRIVER_REVISION_VERSION))
@@ -255,6 +255,21 @@ struct rga_session {
 	pid_t tgid;
 };
 
+struct rga_job_buffer {
+	union {
+		struct {
+			struct rga_internal_buffer *y_addr;
+			struct rga_internal_buffer *uv_addr;
+			struct rga_internal_buffer *v_addr;
+		};
+		struct rga_internal_buffer *addr;
+	};
+
+	uint32_t *page_table;
+	int order;
+	int page_count;
+};
+
 struct rga_job {
 	struct list_head head;
 
@@ -272,11 +287,11 @@ struct rga_job {
 	/* used by rga2 */
 	struct rga_dma_buffer_t *rga_dma_buffer_els;
 
-	struct rga_internal_buffer *src_buffer;
-	struct rga_internal_buffer *src1_buffer;
-	struct rga_internal_buffer *dst_buffer;
+	struct rga_job_buffer src_buffer;
+	struct rga_job_buffer src1_buffer;
+	struct rga_job_buffer dst_buffer;
 	/* used by rga2 */
-	struct rga_internal_buffer *els_buffer;
+	struct rga_job_buffer els_buffer;
 
 	struct dma_buf *dma_buf_src0;
 	struct dma_buf *dma_buf_src1;
@@ -389,8 +404,6 @@ struct rga_session_manager {
 };
 
 struct rga_drvdata_t {
-	struct miscdevice miscdev;
-
 	/* used by rga2's mmu lock */
 	struct mutex lock;
 

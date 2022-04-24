@@ -4,7 +4,7 @@
  * Author:Mark Yao <mark.yao@rock-chips.com>
  */
 
-#include <linux/dma-buf-cache.h>
+#include <linux/dma-buf.h>
 #include <linux/iommu.h>
 #include <linux/vmalloc.h>
 

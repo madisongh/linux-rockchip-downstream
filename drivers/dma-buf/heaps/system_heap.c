@@ -10,6 +10,8 @@
  *	Andrew F. Davis <afd@ti.com>
  */
 
+#define pr_fmt(fmt) "sysheap: " fmt
+
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-heap.h>
@@ -52,8 +54,13 @@ struct system_heap_buffer {
 
 struct dma_heap_attachment {
 	struct device *dev;
+	struct dma_buf *dmabuf;
 	struct sg_table *table;
+	dma_addr_t iova;
+	enum dma_data_direction dir;
+	unsigned long dma_map_attrs;
 	struct list_head list;
+	struct kref ref;
 	bool mapped;
 
 	bool uncached;
@@ -75,6 +82,23 @@ static unsigned int orders[] = {8, 4, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
 struct dmabuf_page_pool *pools[NUM_ORDERS];
 struct dmabuf_page_pool *dma32_pools[NUM_ORDERS];
+
+static void system_heap_detach(struct kref *ref)
+{
+	struct dma_heap_attachment *a =
+		container_of(ref, struct dma_heap_attachment, ref);
+	struct system_heap_buffer *buffer = a->dmabuf->priv;
+
+	dma_unmap_sgtable(a->dev, a->table, a->dir, a->dma_map_attrs);
+
+	mutex_lock(&buffer->lock);
+	list_del(&a->list);
+	mutex_unlock(&buffer->lock);
+
+	sg_free_table(a->table);
+	kfree(a->table);
+	kfree(a);
+}
 
 static struct sg_table *dup_sg_table(struct sg_table *table)
 {
@@ -105,8 +129,18 @@ static int system_heap_attach(struct dma_buf *dmabuf,
 			      struct dma_buf_attachment *attachment)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a;
+	struct dma_heap_attachment *a, *t;
 	struct sg_table *table;
+
+	mutex_lock(&buffer->lock);
+	list_for_each_entry_safe(a, t, &buffer->attachments, list) {
+		if (a->dev == attachment->dev && a->dmabuf == dmabuf) {
+			attachment->priv = a;
+			mutex_unlock(&buffer->lock);
+			return 0;
+		}
+	}
+	mutex_unlock(&buffer->lock);
 
 	a = kzalloc(sizeof(*a), GFP_KERNEL);
 	if (!a)
@@ -118,6 +152,9 @@ static int system_heap_attach(struct dma_buf *dmabuf,
 		return -ENOMEM;
 	}
 
+	kref_init(&a->ref);
+
+	a->dmabuf = dmabuf;
 	a->table = table;
 	a->dev = attachment->dev;
 	INIT_LIST_HEAD(&a->list);
@@ -132,21 +169,6 @@ static int system_heap_attach(struct dma_buf *dmabuf,
 	return 0;
 }
 
-static void system_heap_detach(struct dma_buf *dmabuf,
-			       struct dma_buf_attachment *attachment)
-{
-	struct system_heap_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a = attachment->priv;
-
-	mutex_lock(&buffer->lock);
-	list_del(&a->list);
-	mutex_unlock(&buffer->lock);
-
-	sg_free_table(a->table);
-	kfree(a->table);
-	kfree(a);
-}
-
 static struct sg_table *system_heap_map_dma_buf(struct dma_buf_attachment *attachment,
 						enum dma_data_direction direction)
 {
@@ -155,14 +177,20 @@ static struct sg_table *system_heap_map_dma_buf(struct dma_buf_attachment *attac
 	int attr = attachment->dma_map_attrs;
 	int ret;
 
-	if (a->uncached)
-		attr |= DMA_ATTR_SKIP_CPU_SYNC;
+	if (!a->mapped) {
+		if (a->uncached)
+			attr |= DMA_ATTR_SKIP_CPU_SYNC;
+		ret = dma_map_sgtable(a->dev, table, direction, attr);
+		if (ret)
+			return ERR_PTR(ret);
 
-	ret = dma_map_sgtable(attachment->dev, table, direction, attr);
-	if (ret)
-		return ERR_PTR(ret);
+		a->iova = sg_dma_address(table->sgl);
+		a->mapped = true;
+		a->dma_map_attrs = attr;
+		a->dir = direction;
+	}
+	kref_get(&a->ref);
 
-	a->mapped = true;
 	return table;
 }
 
@@ -171,12 +199,8 @@ static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
 				      enum dma_data_direction direction)
 {
 	struct dma_heap_attachment *a = attachment->priv;
-	int attr = attachment->dma_map_attrs;
 
-	if (a->uncached)
-		attr |= DMA_ATTR_SKIP_CPU_SYNC;
-	a->mapped = false;
-	dma_unmap_sgtable(attachment->dev, table, direction, attr);
+	kref_put(&a->ref, system_heap_detach);
 }
 
 static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
@@ -505,13 +529,16 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
+	struct dma_heap_attachment *a, *t;
+
+	list_for_each_entry_safe(a, t, &buffer->attachments, list)
+		kref_put(&a->ref, system_heap_detach);
 
 	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
 }
 
 static const struct dma_buf_ops system_heap_buf_ops = {
 	.attach = system_heap_attach,
-	.detach = system_heap_detach,
 	.map_dma_buf = system_heap_map_dma_buf,
 	.unmap_dma_buf = system_heap_unmap_dma_buf,
 	.begin_cpu_access = system_heap_dma_buf_begin_cpu_access,

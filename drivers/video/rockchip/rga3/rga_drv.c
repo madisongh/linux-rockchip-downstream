@@ -572,6 +572,11 @@ static long rga_ioctl_import_buffer(unsigned long arg, struct rga_session *sessi
 	}
 
 	for (i = 0; i < buffer_pool.size; i++) {
+		if (DEBUGGER_EN(MSG)) {
+			pr_info("import buffer info:\n");
+			rga_dump_external_buffer(&external_buffer[i]);
+		}
+
 		ret = rga_mm_import_buffer(&external_buffer[i], session);
 		if (ret == 0) {
 			pr_err("buffer[%d] mm import buffer failed! memory = 0x%lx, type = 0x%x\n",
@@ -640,6 +645,9 @@ static long rga_ioctl_release_buffer(unsigned long arg)
 	}
 
 	for (i = 0; i < buffer_pool.size; i++) {
+		if (DEBUGGER_EN(MSG))
+			pr_info("release buffer handle[%d]\n", external_buffer[i].handle);
+
 		ret = rga_mm_release_buffer(external_buffer[i].handle);
 		if (ret < 0) {
 			pr_err("buffer[%d] mm release buffer failed!\n", i);
@@ -774,7 +782,7 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 	char version[16] = { 0 };
 	struct rga_version_t driver_version;
 	struct rga_hw_versions_t hw_versions;
-	struct rga_internal_ctx_t *ctx;
+	struct rga_internal_ctx_t ctx;
 
 	struct rga_session *session = file->private_data;
 
@@ -799,17 +807,11 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 		if (DEBUGGER_EN(MSG))
 			rga_cmd_print_debug_info(&req_rga);
 
-		ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-		if (!ctx) {
-			pr_err("can not kzalloc for ctx!\n");
-			return -ENOMEM;
-		}
+		ctx.sync_mode = cmd;
+		ctx.use_batch_mode = false;
+		ctx.session = session;
 
-		ctx->sync_mode = cmd;
-		ctx->use_batch_mode = false;
-		ctx->session = session;
-
-		ret = rga_job_commit(&req_rga, ctx);
+		ret = rga_job_commit(&req_rga, &ctx);
 		if (ret < 0) {
 			if (ret == -ERESTARTSYS) {
 				if (DEBUGGER_EN(MSG))
@@ -827,8 +829,6 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 			ret = -EFAULT;
 			break;
 		}
-
-		kfree(ctx);
 
 		break;
 	case RGA_CACHE_FLUSH:
@@ -1430,11 +1430,9 @@ static struct platform_driver rga2_driver = {
 		 },
 };
 
-static int __init rga_init(void)
+static int rga2_mmu_base_init(void)
 {
-	int ret;
 	int order = 0;
-
 	uint32_t *buf_p;
 	uint32_t *buf;
 
@@ -1449,8 +1447,17 @@ static int __init rga_init(void)
 		return -ENOMEM;
 	}
 
-	rga2_mmu_info.buf_virtual = buf_p;
 	rga2_mmu_info.buf_order = order;
+
+	order = get_order(RGA2_PHY_PAGE_SIZE * sizeof(struct page *));
+	rga2_mmu_info.pages =
+		(struct page **)__get_free_pages(GFP_KERNEL | GFP_DMA32, order);
+	if (rga2_mmu_info.pages == NULL) {
+		pr_err("Can not alloc pages for rga2_mmu_info.pages\n");
+		goto err_free_buf_virtual;
+	}
+
+	rga2_mmu_info.pages_order = order;
 
 #if (defined(CONFIG_ARM) && defined(CONFIG_ARM_LPAE))
 	buf =
@@ -1459,18 +1466,40 @@ static int __init rga_init(void)
 #else
 	buf = (uint32_t *) virt_to_phys((void *)((unsigned long)buf_p));
 #endif
+	rga2_mmu_info.buf_virtual = buf_p;
 	rga2_mmu_info.buf = buf;
 	rga2_mmu_info.front = 0;
 	rga2_mmu_info.back = RGA2_PHY_PAGE_SIZE * 3;
 	rga2_mmu_info.size = RGA2_PHY_PAGE_SIZE * 3;
 
-	order = get_order(RGA2_PHY_PAGE_SIZE * sizeof(struct page *));
-	rga2_mmu_info.pages =
-		(struct page **)__get_free_pages(GFP_KERNEL | GFP_DMA32, order);
-	if (rga2_mmu_info.pages == NULL)
-		pr_err("Can not alloc pages for rga2_mmu_info.pages\n");
+	return 0;
 
-	rga2_mmu_info.pages_order = order;
+err_free_buf_virtual:
+	free_pages((unsigned long)buf_p, rga2_mmu_info.buf_order);
+	rga2_mmu_info.buf_order = 0;
+
+	return -ENOMEM;
+}
+
+static void rga2_mmu_base_free(void)
+{
+	if (rga2_mmu_info.buf_virtual != NULL) {
+		free_pages((unsigned long)rga2_mmu_info.buf_virtual, rga2_mmu_info.buf_order);
+		rga2_mmu_info.buf_virtual = NULL;
+		rga2_mmu_info.buf_order = 0;
+	}
+
+	if (rga2_mmu_info.pages != NULL) {
+		free_pages((unsigned long)rga2_mmu_info.pages, rga2_mmu_info.pages_order);
+		rga2_mmu_info.pages = NULL;
+		rga2_mmu_info.pages_order = 0;
+	}
+}
+
+static int __init rga_init(void)
+{
+	int ret;
+	int i;
 
 	rga_drvdata = kzalloc(sizeof(struct rga_drvdata_t), GFP_KERNEL);
 	if (rga_drvdata == NULL) {
@@ -1483,25 +1512,37 @@ static int __init rga_init(void)
 	ret = platform_driver_register(&rga3_core0_driver);
 	if (ret != 0) {
 		pr_err("Platform device rga3_core0_driver register failed (%d).\n", ret);
-		return ret;
+		goto err_free_drvdata;
 	}
 
 	ret = platform_driver_register(&rga3_core1_driver);
 	if (ret != 0) {
 		pr_err("Platform device rga3_core1_driver register failed (%d).\n", ret);
-		return ret;
+		goto err_unregister_rga3_core0;
 	}
 
 	ret = platform_driver_register(&rga2_driver);
 	if (ret != 0) {
 		pr_err("Platform device rga2_driver register failed (%d).\n", ret);
-		return ret;
+		goto err_unregister_rga3_core1;
+	}
+
+	for (i = 0; i < rga_drvdata->num_of_scheduler; i++) {
+		if (rga_drvdata->scheduler[i]->data->mmu == RGA_MMU) {
+			ret = rga2_mmu_base_init();
+			if (ret) {
+				pr_err("rga2 mmu base init failed!\n");
+				goto err_unregister_rga2;
+			}
+
+			break;
+		}
 	}
 
 	ret = misc_register(&rga_dev);
 	if (ret) {
 		pr_err("cannot register miscdev (%d)\n", ret);
-		return ret;
+		goto err_free_mmu_base;
 	}
 
 	rga_init_timer();
@@ -1523,13 +1564,28 @@ static int __init rga_init(void)
 	pr_info("Module initialized. v%s\n", DRIVER_VERSION);
 
 	return 0;
+
+err_free_mmu_base:
+	rga2_mmu_base_free();
+
+err_unregister_rga2:
+	platform_driver_unregister(&rga2_driver);
+
+err_unregister_rga3_core1:
+	platform_driver_unregister(&rga3_core1_driver);
+
+err_unregister_rga3_core0:
+	platform_driver_unregister(&rga3_core0_driver);
+
+err_free_drvdata:
+	kfree(rga_drvdata);
+
+	return ret;
 }
 
 static void __exit rga_exit(void)
 {
-	free_pages((unsigned long)rga2_mmu_info.buf_virtual,
-		 rga2_mmu_info.buf_order);
-	free_pages((unsigned long)rga2_mmu_info.pages, rga2_mmu_info.pages_order);
+	rga2_mmu_base_free();
 
 #ifdef CONFIG_ROCKCHIP_RGA_DEBUGGER
 	rga_debugger_remove(&rga_drvdata->debugger);
@@ -1551,9 +1607,11 @@ static void __exit rga_exit(void)
 	platform_driver_unregister(&rga3_core1_driver);
 	platform_driver_unregister(&rga2_driver);
 
-	misc_deregister(&(rga_drvdata->miscdev));
+	misc_deregister(&rga_dev);
 
 	kfree(rga_drvdata);
+
+	pr_info("Module exited. v%s\n", DRIVER_VERSION);
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
