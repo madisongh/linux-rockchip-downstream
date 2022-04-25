@@ -188,6 +188,8 @@ static void mic_det_work(struct work_struct *work)
 			status = jack_get_type(lin1_lin2_zone,ARRAY_SIZE(lin1_lin2_zone),value);
 		}else if (mc_data->linein_type == LINEIN_TYPE2){
 			status = jack_get_type(lin0_lin1_zone,ARRAY_SIZE(lin0_lin1_zone),value);
+			if (status == INPUT_LIN2_DIFF)
+				status = INPUT_LIN1;
 		}else{
 			status = jack_get_type(lin1_lin2_lin2diff_zone,ARRAY_SIZE(lin1_lin2_lin2diff_zone),value);		
 		}
