@@ -34,15 +34,6 @@
                 gpio = <&pca9555 PCA_IO1_6 GPIO_ACTIVE_HIGH>;
         };
 
-        vcc_4g_pwren: vcc-4g-pwren-regulator {
-                compatible = "regulator-fixed";
-                regulator-name = "vcc_4g_pwren";
-                regulator-always-on;
-                enable-active-high;
-                status = "okay";
-                gpio = <&pca9555 PCA_IO1_4 GPIO_ACTIVE_HIGH>;
-        };
-
 	vcc_3v3_sd_s0: vcc-3v3-sd-s0 {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_3v3_sd_s0";
@@ -56,16 +47,6 @@
 			regulator-state-mem {
 			regulator-off-in-suspend;
 		};
-	};
-
-
-	vcc_hub3_reset: vcc-hub3-reset-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc_hub3_reset";
-		regulator-always-on;
-		enable-active-high;
-		status = "okay";
-		gpio = <&pca9555 PCA_IO0_6 GPIO_ACTIVE_HIGH>;  //PCA_IO 06
 	};
 
     vcc_3v0_sata: vcc-3v0-sata-regulator {
