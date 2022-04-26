@@ -354,6 +354,12 @@
 	status = "okay";
 };
 
+&uart7 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart7m2_xfer>;
+        status = "okay";
+};
+
 &pinctrl {
 	leds {
 		led_user: led-user {
