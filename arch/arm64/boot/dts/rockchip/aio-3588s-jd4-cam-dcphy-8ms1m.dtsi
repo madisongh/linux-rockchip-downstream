@@ -97,7 +97,7 @@
         pinctrl-names = "default";
 	pinctrl-0 = <&i2c7m0_xfer>;
 
-        XC7160_0: XC7160b-0@1b{
+        XC7160_0: XC7160-0@1b{
                compatible = "firefly,xc7160";
                reg = <0x1b>;
 	       clocks = <&cru CLK_MIPI_CAMARAOUT_M3>;
@@ -111,7 +111,7 @@
 
                //avdd-supply = <&vcc_mipidcphy0>;
                firefly,clkout-enabled-index = <0>;
-               rockchip,camera-module-index = <4>;
+               rockchip,camera-module-index = <1>;
                rockchip,camera-module-facing = "back";
                rockchip,camera-module-name = "NC";
                rockchip,camera-module-lens-name = "NC";
@@ -136,7 +136,7 @@
                pwdn-gpios = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;
 
                firefly,clkout-enabled-index = <0>;
-               rockchip,camera-module-index = <5>;
+               rockchip,camera-module-index = <2>;
                rockchip,camera-module-facing = "back";
                rockchip,camera-module-name = "NC";
                rockchip,camera-module-lens-name = "NC";
