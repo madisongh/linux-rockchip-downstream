@@ -246,7 +246,9 @@
 
 &gmac1{
  	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
-	tx_delay = <0x3d>;
+	phy-mode = "rgmii";
+	tx_delay = <0x40>;
+	rx_delay = <0x36>;
 	status = "okay";
 };
 
