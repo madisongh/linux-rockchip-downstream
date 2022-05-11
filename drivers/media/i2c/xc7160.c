@@ -85,7 +85,7 @@ static DEFINE_MUTEX(xc7160_power_mutex);
 #define XC7160_LANES 			4
 
 #define XC7160_LINK_FREQ_XXX_MHZ_L	504000000U
-#define XC7160_LINK_FREQ_XXX_MHZ_H 576000000
+#define XC7160_LINK_FREQ_XXX_MHZ_H      576000000
 
 /* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
 #define XC7160_PIXEL_RATE_LOW		(XC7160_LINK_FREQ_XXX_MHZ_L *2 *4/10)
@@ -542,7 +542,7 @@ static int xc7160_set_fmt(struct v4l2_subdev *sd,
 {
 	struct xc7160 *xc7160 = to_xc7160(sd);
 	const struct xc7160_mode *mode;
-	//s64 h_blank, vblank_def;
+	s64 h_blank, vblank_def;
         //struct v4l2_ctrl_handler *handler;
 
 	mutex_lock(&xc7160->mutex);
@@ -560,8 +560,8 @@ static int xc7160_set_fmt(struct v4l2_subdev *sd,
 		__v4l2_ctrl_s_ctrl(xc7160->link_freq, 0);
 		__v4l2_ctrl_s_ctrl_int64(xc7160->pixel_rate, XC7160_PIXEL_RATE_HIGH);
 	}
-	xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
-	sc8238_global_regs = xc7160->cur_mode->sensor_reg_list;
+	xc7160_global_regs = mode->isp_reg_list;
+	sc8238_global_regs = mode->sensor_reg_list;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
@@ -571,21 +571,21 @@ static int xc7160_set_fmt(struct v4l2_subdev *sd,
 		return -ENOTTY;
 #endif
 	} else {
-		//xc7160->cur_mode = mode;
-		//h_blank = mode->hts_def - mode->width;
-		//__v4l2_ctrl_modify_range(xc7160->hblank, h_blank,
-		//			 h_blank, 1, h_blank);
-		//vblank_def = mode->vts_def - mode->height;
-		//__v4l2_ctrl_modify_range(xc7160->vblank, vblank_def,
-		//			 XC7160_VTS_MAX - mode->height,
-		//			 1, vblank_def);
+		xc7160->cur_mode = mode;
+		h_blank = mode->hts_def - mode->width;
+		__v4l2_ctrl_modify_range(xc7160->hblank, h_blank,
+					 h_blank, 1, h_blank);
+		vblank_def = mode->vts_def - mode->height;
+		__v4l2_ctrl_modify_range(xc7160->vblank, vblank_def,
+					 XC7160_VTS_MAX - mode->height,
+					 1, vblank_def);
 		if (xc7160->streaming){
 			mutex_unlock(&xc7160->mutex);
 			return -EBUSY;
 		}
 
 	}
-
+	camera_isp_sensor_initial(xc7160);
 	mutex_unlock(&xc7160->mutex);
 
 	return 0;
