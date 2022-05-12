@@ -30,6 +30,12 @@ menuconfig WATCHDOG
 
 if WATCHDOG
 
+config PC9202_WATCHDOG
+    bool "Watchdog PC9202 driver"
+    depends on I2C
+    help
+      This option to verify the valid of PCBA.
+
 config WATCHDOG_CORE
 	tristate "WatchDog Timer Driver Core"
 	help
