@@ -1963,6 +1963,10 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 	spin_lock(&vop->reg_lock);
 
 	VOP_WIN_SET(vop, win, format, vop_plane_state->format);
+
+	VOP_WIN_SET(vop, win, interlace_read,
+		    (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE) ? 1 : 0);
+
 	VOP_WIN_SET(vop, win, yrgb_vir, DIV_ROUND_UP(fb->pitches[0], 4));
 	VOP_WIN_SET(vop, win, yrgb_mst, vop_plane_state->yrgb_mst);
 
@@ -3044,8 +3048,10 @@ static void vop_update_csc(struct drm_crtc *crtc)
 	struct vop *vop = to_vop(crtc);
 	u32 val;
 
-	if (s->output_mode == ROCKCHIP_OUT_MODE_AAAA &&
-	    !(vop->data->feature & VOP_FEATURE_OUTPUT_10BIT))
+	if ((s->output_mode == ROCKCHIP_OUT_MODE_AAAA &&
+	     !(vop->data->feature & VOP_FEATURE_OUTPUT_10BIT)) ||
+	    (VOP_MAJOR(vop->version) == 2 && VOP_MINOR(vop->version) >= 12 &&
+	     s->output_if & VOP_OUTPUT_IF_BT656))
 		s->output_mode = ROCKCHIP_OUT_MODE_P888;
 
 	if (is_uv_swap(s->bus_format, s->output_mode))
@@ -3214,6 +3220,8 @@ static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 			yc_swap = is_yc_swap(s->bus_format);
 			VOP_CTRL_SET(vop, bt1120_yc_swap, yc_swap);
 			VOP_CTRL_SET(vop, yuv_clip, 1);
+		} else if (s->output_if & VOP_OUTPUT_IF_BT656) {
+			VOP_CTRL_SET(vop, bt656_en, 1);
 		}
 		break;
 	case DRM_MODE_CONNECTOR_eDP:
@@ -3300,7 +3308,8 @@ static void vop_crtc_atomic_enable(struct drm_crtc *crtc,
 	VOP_CTRL_SET(vop, vtotal_pw, vtotal << 16 | vsync_len);
 
 	VOP_CTRL_SET(vop, core_dclk_div,
-		     !!(adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK));
+		     !!(adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK) ||
+		     s->output_if & VOP_OUTPUT_IF_BT656);
 
 	VOP_CTRL_SET(vop, win_csc_mode_sel, 1);
 

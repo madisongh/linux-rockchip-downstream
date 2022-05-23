@@ -8,3 +8,11 @@
 / {
 	compatible = "rockchip,rv1103";
 };
+
+&acodec {
+	compatible = "rockchip,rv1103-codec";
+};
+
+&u2phy_otg {
+	rockchip,vbus-always-on;
+};

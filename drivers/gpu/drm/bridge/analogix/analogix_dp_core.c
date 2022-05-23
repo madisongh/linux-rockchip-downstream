@@ -499,11 +499,6 @@ static int analogix_dp_process_clock_recovery(struct analogix_dp_device *dp)
 	if (retval < 0)
 		return retval;
 
-	retval = drm_dp_dpcd_read(&dp->aux, DP_ADJUST_REQUEST_LANE0_1,
-				  adjust_request, 2);
-	if (retval < 0)
-		return retval;
-
 	if (analogix_dp_clock_recovery_ok(link_status, lane_count) == 0) {
 		if (analogix_dp_tps3_supported(dp))
 			training_pattern = TRAINING_PTN3;
@@ -520,7 +515,14 @@ static int analogix_dp_process_clock_recovery(struct analogix_dp_device *dp)
 
 		dev_dbg(dp->dev, "Link Training Clock Recovery success\n");
 		dp->link_train.lt_state = EQUALIZER_TRAINING;
+
+		return 0;
 	} else {
+		retval = drm_dp_dpcd_read(&dp->aux, DP_ADJUST_REQUEST_LANE0_1,
+					  adjust_request, 2);
+		if (retval < 0)
+			return retval;
+
 		for (lane = 0; lane < lane_count; lane++) {
 			training_lane = analogix_dp_get_lane_link_training(
 							dp, lane);
@@ -577,17 +579,10 @@ static int analogix_dp_process_equalizer_training(struct analogix_dp_device *dp)
 		return -EIO;
 	}
 
-	retval = drm_dp_dpcd_read(&dp->aux, DP_ADJUST_REQUEST_LANE0_1,
-				  adjust_request, 2);
-	if (retval < 0)
-		return retval;
-
 	retval = drm_dp_dpcd_readb(&dp->aux, DP_LANE_ALIGN_STATUS_UPDATED,
 				   &link_align);
 	if (retval < 0)
 		return retval;
-
-	analogix_dp_get_adjust_training_lane(dp, adjust_request);
 
 	if (!analogix_dp_channel_eq_ok(link_status, link_align, lane_count)) {
 		/* traing pattern Set to Normal */
@@ -620,6 +615,12 @@ static int analogix_dp_process_equalizer_training(struct analogix_dp_device *dp)
 		return -EIO;
 	}
 
+	retval = drm_dp_dpcd_read(&dp->aux, DP_ADJUST_REQUEST_LANE0_1,
+				  adjust_request, 2);
+	if (retval < 0)
+		return retval;
+
+	analogix_dp_get_adjust_training_lane(dp, adjust_request);
 	analogix_dp_set_lane_link_training(dp);
 
 	retval = drm_dp_dpcd_write(&dp->aux, DP_TRAINING_LANE0_SET,
@@ -1146,6 +1147,9 @@ static int analogix_dp_get_modes(struct drm_connector *connector)
 	if (dp->plat_data->panel)
 		num_modes += drm_panel_get_modes(dp->plat_data->panel, connector);
 
+	if (dp->plat_data->bridge)
+		num_modes += drm_bridge_get_modes(dp->plat_data->bridge, connector);
+
 	if (!num_modes) {
 		ret = analogix_dp_phy_power_on(dp);
 		if (ret)
@@ -1250,6 +1254,13 @@ analogix_dp_detect(struct analogix_dp_device *dp)
 		status = connector_status_connected;
 	}
 
+	if (dp->plat_data->bridge) {
+		struct drm_bridge *next_bridge = dp->plat_data->bridge;
+
+		if (next_bridge->ops & DRM_BRIDGE_OP_DETECT)
+			status = drm_bridge_detect(next_bridge);
+	}
+
 out:
 	analogix_dp_phy_power_off(dp);
 
@@ -1309,14 +1320,18 @@ static int analogix_dp_bridge_attach(struct drm_bridge *bridge,
 	}
 
 	if (!dp->plat_data->skip_connector) {
+		int connector_type = DRM_MODE_CONNECTOR_eDP;
+
+		if (dp->plat_data->bridge &&
+		    dp->plat_data->bridge->type != DRM_MODE_CONNECTOR_Unknown)
+			connector_type = dp->plat_data->bridge->type;
+
 		connector = &dp->connector;
 		connector->polled = DRM_CONNECTOR_POLL_HPD;
 
 		ret = drm_connector_init(dp->drm_dev, connector,
 					 &analogix_dp_connector_funcs,
-					 dp->plat_data->bridge ?
-					 dp->plat_data->bridge->type :
-					 DRM_MODE_CONNECTOR_eDP);
+					 connector_type);
 		if (ret) {
 			DRM_ERROR("Failed to initialize connector with drm\n");
 			return ret;
@@ -1733,8 +1748,11 @@ static int analogix_dp_bridge_init(struct analogix_dp_device *dp)
 
 	if (dp->plat_data->right) {
 		struct analogix_dp_device *secondary = dp->plat_data->right;
+		struct drm_bridge *last_bridge =
+			list_last_entry(&bridge->encoder->bridge_chain,
+					struct drm_bridge, chain_node);
 
-		ret = drm_bridge_attach(dp->encoder, &secondary->bridge, bridge,
+		ret = drm_bridge_attach(dp->encoder, &secondary->bridge, last_bridge,
 					DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 		if (ret)
 			return ret;

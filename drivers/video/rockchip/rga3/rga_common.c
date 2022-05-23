@@ -521,6 +521,22 @@ void rga_convert_addr(struct rga_img_info_t *img, bool before_vir_get_channel)
 	}
 }
 
+void rga_swap_pd_mode(struct rga_req *req_rga)
+{
+	if (((req_rga->alpha_rop_flag) & 1)) {
+		if ((req_rga->alpha_rop_flag >> 3) & 1) {
+			if (req_rga->PD_mode == 1)
+				req_rga->PD_mode = 2;
+			else if (req_rga->PD_mode == 2)
+				req_rga->PD_mode = 1;
+			else if (req_rga->PD_mode == 3)
+				req_rga->PD_mode = 4;
+			else if (req_rga->PD_mode == 4)
+				req_rga->PD_mode = 3;
+		}
+	}
+}
+
 int rga_image_size_cal(int w, int h, int format,
 		       int *yrgb_size, int *uv_size, int *v_size)
 {
@@ -579,6 +595,9 @@ int rga_image_size_cal(int w, int h, int format,
 		break;
 	case RGA_FORMAT_YCbCr_420_SP:
 	case RGA_FORMAT_YCrCb_420_SP:
+	/* 10bit format stride is externally configured. */
+	case RGA_FORMAT_YCbCr_420_SP_10B:
+	case RGA_FORMAT_YCrCb_420_SP_10B:
 		yrgb = w * h;
 		uv = (w * h) >> 1;
 		break;

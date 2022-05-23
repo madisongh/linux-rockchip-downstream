@@ -62,7 +62,6 @@
 #include <linux/hrtimer.h>
 
 #include "rga.h"
-#include "rga_debugger.h"
 
 #define RGA_CORE_REG_OFFSET 0x10000
 
@@ -86,7 +85,7 @@
 
 #define DRIVER_MAJOR_VERISON		1
 #define DRIVER_MINOR_VERSION		2
-#define DRIVER_REVISION_VERSION		9
+#define DRIVER_REVISION_VERSION		12
 
 #define DRIVER_VERSION (STR(DRIVER_MAJOR_VERISON) "." STR(DRIVER_MINOR_VERSION) \
 			"." STR(DRIVER_REVISION_VERSION))
@@ -137,33 +136,6 @@ struct rga_iommu_dma_cookie {
 	struct iova_domain  iovad;
 };
 
-/*
- * legacy: Wait for the import process to completely replace the current
- * dma_map and remove it
- */
-struct rga_dma_buffer_t {
-	/* DMABUF information */
-	struct dma_buf *dma_buf;
-	struct dma_buf_attachment *attach;
-	struct sg_table *sgt;
-
-	dma_addr_t iova;
-	unsigned long size;
-	void *vaddr;
-	enum dma_data_direction dir;
-
-	/* It indicates whether the buffer is cached */
-	bool cached;
-
-	struct list_head link;
-	struct kref refcount;
-
-	struct iommu_domain *domain;
-	struct rga_iommu_dma_cookie *cookie;
-
-	bool use_viraddr;
-};
-
 struct rga_dma_buffer {
 	/* DMABUF information */
 	struct dma_buf *dma_buf;
@@ -187,6 +159,8 @@ struct rga_dma_buffer {
 
 	/* The core of the mapping */
 	int core;
+
+	struct device *dev;
 };
 
 struct rga_virt_addr {
@@ -230,23 +204,6 @@ struct rga_internal_buffer {
 	struct rga_session *session;
 };
 
-/*
- * yqw add:
- * In order to use the virtual address to refresh the cache,
- * it may be merged into sgt later.
- */
-struct rga2_mmu_other_t {
-	uint32_t *MMU_src0_base;
-	uint32_t *MMU_src1_base;
-	uint32_t *MMU_dst_base;
-	uint32_t MMU_src0_count;
-	uint32_t MMU_src1_count;
-	uint32_t MMU_dst_count;
-
-	uint32_t MMU_len;
-	bool MMU_map;
-};
-
 struct rga_scheduler_t;
 
 struct rga_session {
@@ -256,6 +213,15 @@ struct rga_session {
 };
 
 struct rga_job_buffer {
+	union {
+		struct {
+			struct rga_external_buffer *ex_y_addr;
+			struct rga_external_buffer *ex_uv_addr;
+			struct rga_external_buffer *ex_v_addr;
+		};
+		struct rga_external_buffer *ex_addr;
+	};
+
 	union {
 		struct {
 			struct rga_internal_buffer *y_addr;
@@ -281,26 +247,14 @@ struct rga_job {
 	struct rga_full_csc full_csc;
 	struct rga_pre_intr_info pre_intr_info;
 
-	struct rga_dma_buffer_t *rga_dma_buffer_src0;
-	struct rga_dma_buffer_t *rga_dma_buffer_src1;
-	struct rga_dma_buffer_t *rga_dma_buffer_dst;
-	/* used by rga2 */
-	struct rga_dma_buffer_t *rga_dma_buffer_els;
-
 	struct rga_job_buffer src_buffer;
 	struct rga_job_buffer src1_buffer;
 	struct rga_job_buffer dst_buffer;
 	/* used by rga2 */
 	struct rga_job_buffer els_buffer;
 
-	struct dma_buf *dma_buf_src0;
-	struct dma_buf *dma_buf_src1;
-	struct dma_buf *dma_buf_dst;
-	struct dma_buf *dma_buf_els;
-
 	/* for rga2 virtual_address */
 	struct mm_struct *mm;
-	struct rga2_mmu_other_t vir_page_table;
 
 	struct dma_fence *out_fence;
 	struct dma_fence *in_fence;
@@ -312,7 +266,7 @@ struct rga_job {
 	/* The time only for hrtimer to calculate the load */
 	ktime_t hw_recoder_time;
 	unsigned int flags;
-	int ctx_id;
+	int request_id;
 	int priority;
 	int core;
 	int ret;
@@ -355,24 +309,26 @@ struct rga_scheduler_t {
 	struct rga_timer timer;
 };
 
-struct rga_internal_ctx_t {
-	struct rga_req *cached_cmd;
-	struct rga_session *session;
-
-	int cmd_num;
-	int flags;
-	int id;
-
-	uint8_t mpi_config_flags;
-	uint32_t sync_mode;
-
-	uint32_t finished_job_count;
+struct rga_request {
+	struct rga_req *task_list;
+	int task_count;
+	uint32_t finished_task_count;
 
 	bool use_batch_mode;
 	bool is_running;
+	uint32_t sync_mode;
 
-	struct dma_fence *out_fence;
-	int32_t out_fence_fd;
+	int32_t acquire_fence_fd;
+	int32_t release_fence_fd;
+	struct dma_fence *release_fence;
+	spinlock_t fence_lock;
+
+	wait_queue_head_t finished_wq;
+
+	int flags;
+	uint8_t mpi_config_flags;
+	int id;
+	struct rga_session *session;
 
 	spinlock_t lock;
 	struct kref refcount;
@@ -381,18 +337,18 @@ struct rga_internal_ctx_t {
 	/* TODO: add some common work */
 };
 
-struct rga_pending_ctx_manager {
+struct rga_pending_request_manager {
 	struct mutex lock;
 
 	/*
-	 * @ctx_id_idr:
+	 * @request_idr:
 	 *
-	 * Mapping of ctx id to object pointers. Used by the GEM
+	 * Mapping of request id to object pointers. Used by the GEM
 	 * subsystem. Protected by @lock.
 	 */
-	struct idr ctx_id_idr;
+	struct idr request_idr;
 
-	int ctx_count;
+	int request_count;
 };
 
 struct rga_session_manager {
@@ -415,7 +371,7 @@ struct rga_drvdata_t {
 	struct rga_mm *mm;
 
 	/* rga_job pending manager, import by RGA_START_CONFIG */
-	struct rga_pending_ctx_manager *pend_ctx_manager;
+	struct rga_pending_request_manager *pend_request_manager;
 
 	struct rga_session_manager *session_manager;
 
