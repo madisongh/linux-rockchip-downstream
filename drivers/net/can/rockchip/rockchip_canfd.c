@@ -27,6 +27,7 @@
 #include <linux/can/led.h>
 #include <linux/reset.h>
 #include <linux/pm_runtime.h>
+#include <linux/rockchip/cpu.h>
 
 /* registers definition */
 enum rockchip_canfd_reg {
@@ -188,6 +189,10 @@ enum {
 #define TX_FD_BRS_ENABLE	BIT(4)
 
 #define FIFO_ENABLE		BIT(0)
+#define RX_FIFO_CNT0_SHIFT	4
+#define RX_FIFO_CNT0_MASK	(0x7 << RX_FIFO_CNT0_SHIFT)
+#define RX_FIFO_CNT1_SHIFT	5
+#define RX_FIFO_CNT1_MASK	(0x7 << RX_FIFO_CNT1_SHIFT)
 
 #define FORMAT_SHIFT		7
 #define FORMAT_MASK		(0x1 << FORMAT_SHIFT)
@@ -220,6 +225,8 @@ struct rockchip_canfd {
 	void __iomem *base;
 	u32 irqstatus;
 	unsigned long mode;
+	int rx_fifo_shift;
+	u32 rx_fifo_mask;
 };
 
 static inline u32 rockchip_canfd_read(const struct rockchip_canfd *priv,
@@ -665,10 +672,11 @@ static irqreturn_t rockchip_canfd_interrupt(int irq, void *dev_id)
 	struct net_device *ndev = (struct net_device *)dev_id;
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
-	u8 err_int = ERR_WARN_INT | RX_BUF_OV_INT | PASSIVE_ERR_INT |
+	u32 err_int = ERR_WARN_INT | RX_BUF_OV_INT | PASSIVE_ERR_INT |
 		     TX_LOSTARB_INT | BUS_ERR_INT;
-	u8 isr;
+	u32 isr;
 	u32 dlc = 0;
+	u32 quota = 0;
 
 	isr = rockchip_canfd_read(rcan, CAN_INT);
 	if (isr & TX_FINISH_INT) {
@@ -685,8 +693,14 @@ static irqreturn_t rockchip_canfd_interrupt(int irq, void *dev_id)
 		can_led_event(ndev, CAN_LED_EVENT_TX);
 	}
 
-	if (isr & RX_FINISH_INT)
-		rockchip_canfd_rx(ndev);
+	if (isr & RX_FINISH_INT) {
+		quota = (rockchip_canfd_read(rcan, CAN_RXFC) & rcan->rx_fifo_mask) >>
+				rcan->rx_fifo_shift;
+		while(quota) {
+			rockchip_canfd_rx(ndev);
+			quota--;
+		}
+	}
 
 	if (isr & err_int) {
 		/* error interrupt */
@@ -939,6 +953,14 @@ static int rockchip_canfd_probe(struct platform_device *pdev)
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	if (soc_is_rk3566() || soc_is_rk3568()) {
+		rcan->rx_fifo_shift = RX_FIFO_CNT0_SHIFT;
+		rcan->rx_fifo_mask = RX_FIFO_CNT0_MASK;
+	} else {
+		rcan->rx_fifo_shift = RX_FIFO_CNT1_SHIFT;
+		rcan->rx_fifo_mask = RX_FIFO_CNT1_MASK;
 	}
 
 	ndev->netdev_ops = &rockchip_canfd_netdev_ops;
