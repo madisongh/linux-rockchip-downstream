@@ -15,7 +15,7 @@
 	compatible = "rockchip,roc-rk3588s-pc", "rockchip,rk3588";
 
 #if WHICHDSI     
-    backlight_1: backlight {
+    backlight_1: backlight-1 {
         status = "okay";
         compatible = "pwm-backlight";
         enable-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;

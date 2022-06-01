@@ -73,7 +73,7 @@
 	};
 */
 
-	backlight_1: backlight {
+	backlight_1: backlight-1 {
         status = "okay";
         compatible = "pwm-backlight";
 		enable-gpios = <&pca9555 PCA_IO1_7 GPIO_ACTIVE_HIGH>;

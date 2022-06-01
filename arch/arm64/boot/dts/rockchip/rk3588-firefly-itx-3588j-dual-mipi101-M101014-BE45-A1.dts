@@ -6,13 +6,11 @@
 /dts-v1/;
 #include "rk3588-firefly-itx-3588j.dtsi"
 #include "rk3588-firefly-itx-cam-8ms1m.dtsi"
-#define WHICHDSI 0 /* dsi0 = 0,dsi1 = 1*/
 
 / {
 	model = "Firefly ITX-3588J MIPI101(Android)";
 	compatible = "rockchip,rk3588-firefly-itx-3588j-mipi101-M101014-BE45-A1", "rockchip,rk3588";
 
-#if WHICHDSI	 
 /*
    vcc1v8_lcd1_power: vcc1v8-lcd1-power-regulator {
 		compatible = "regulator-fixed";
@@ -63,7 +61,6 @@
 		default-brightness-level = <50>;
 	};	
 
-#else
 /*
 	vcc1v8_lcd0_power: vcc1v8-lcd0-power-regulator {
 		compatible = "regulator-fixed";
@@ -114,10 +111,7 @@
 		default-brightness-level = <50>;
 	};	
  
-#endif
 };
-
-#if WHICHDSI 
 
 &pwm11 {
 	pinctrl-0 = <&pwm11m3_pins>;
@@ -246,9 +240,7 @@
 	};
 };
 
-#else
-
-&dsi0_in_vp3 {
+&dsi0_in_vp2 {
 	status = "okay";
 };
 
@@ -258,8 +250,8 @@
 };
 
 &route_dsi0 {
-	status = "okay";
-	connect = <&vp3_out_dsi0>;
+	status = "disabled";
+	connect = <&vp2_out_dsi0>;
 };
 
 &mipi_dcphy0 {
@@ -375,8 +367,22 @@
 		report_type = <1>;
 	};
 };
-#endif
 
+&dp0 {
+	status = "disabled";
+};
+
+&dp0_in_vp2 {
+	status = "disabled";
+};
+
+&dp1 {
+	status = "disabled";
+};
+
+&dp1_in_vp2 {
+	status = "disabled";
+};
 
 &pinctrl {
 	touch {
