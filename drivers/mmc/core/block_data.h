@@ -69,6 +69,12 @@ struct mmc_blk_ioc_data {
 	struct mmc_rpmb_data *rpmb;
 };
 
+struct mmc_rpmb_blk_data {
+    struct mmc_blk_data *md;
+    struct mmc_rpmb_data *rpmb;
+    char dev_name[32];
+};
+
 int mmc_blk_data_init(struct mmc_blk_data *md);
 void mmc_blk_data_deinit(struct mmc_blk_data *md);
 #endif
