@@ -622,8 +622,36 @@ static int es8323_pcm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+/*control gpio about hp_ctl and spk_ctl*/
+extern void firefly_multicodecs_control_gpio(int sound_mute);
+
+void firefly_multircodecs_mute_es8323(int mute)
+{
+
+	if(es8323_param == NULL)
+		return;
+
+	if(mute){
+		/*DAC CONTROL3
+		 * Bit3		0 – normal (default)   1 – both channel gain control is set by DAC left gain control register
+		 * Bit2		0 – normal (default)	1 – mute analog outputs for both channels
+		 * */
+		snd_soc_component_write(es8323_param->component,ES8323_DACCONTROL3,0x06);
+		//	usleep_range(18000, 20000);
+		firefly_multicodecs_control_gpio(mute);
+	}else{
+		firefly_multicodecs_control_gpio(mute);
+		//usleep_range(18000, 20000);
+		snd_soc_component_write(es8323_param->component,ES8323_DACCONTROL3,0x02);
+	}
+
+	return;
+}
+
 static int es8323_mute(struct snd_soc_dai *dai, int mute, int stream)
 {
+	//printk("[zyk debug] %s: codec mute set to %d\n",__func__,mute);
+	firefly_multircodecs_mute_es8323(mute);
 	return 0;
 }
 
