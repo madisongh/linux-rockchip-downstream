@@ -39,7 +39,7 @@
 		compatible = "pwm-fan";
 		#cooling-cells = <2>;
 		fan-supply = <&vcc12v_dcin>;
-		pwms = <&pwm11 0 50000 0>;
+		pwms = <&pwm11 0 50000 1>;
 	};
 
 	vcc3v3_pcie20: vcc3v3-pcie20 {
