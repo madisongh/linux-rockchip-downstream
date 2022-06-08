@@ -70,6 +70,7 @@
 };
 
 &es8388_sound{
+	firefly,not-use-dapm;
 	status = "okay";
 };
 
