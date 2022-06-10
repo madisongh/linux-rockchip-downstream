@@ -585,7 +585,7 @@ static int xc7160_set_fmt(struct v4l2_subdev *sd,
 		}
 
 	}
-	camera_isp_sensor_initial(xc7160);
+	//camera_isp_sensor_initial(xc7160);
 	mutex_unlock(&xc7160->mutex);
 
 	return 0;
