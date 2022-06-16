@@ -6,14 +6,14 @@
 
 /dts-v1/;
 
-#include "aio-3588s-jd4.dtsi"
-#include "aio-3588s-jd4-cam-8ms1m.dtsi"
-#include "aio-3588s-jd4-cam-dcphy-8ms1m.dtsi"
+#include "aio-3588sjd4.dtsi"
+#include "aio-3588sjd4-cam-8ms1m.dtsi"
+#include "aio-3588sjd4-cam-dcphy-8ms1m.dtsi"
 #define WHICHDSI 1 /* 1 = 30pins mipi dsi1,  0 = 40pins mipi dsi0*/
 
 / {
-	model = "Firefly AIO-3588S-JD4 HDMI(Linux)";
-	compatible = "rockchip,aio-3588s-jd4", "rockchip,rk3588";
+	model = "Firefly AIO-3588SJD4 HDMI(Linux)";
+	compatible = "rockchip,aio-3588sjd4", "rockchip,rk3588";
 
 #if WHICHDSI
 	/*	30 pins */
@@ -62,22 +62,22 @@
 
 #else
 	/*40pins*/
-/*
-	lcd_tp_regulator: lcd-tp-regultor{
+	lcd_bl_regulator: lcd-bl-regultor{
 		compatible = "regulator-fixed";
-		regulator-name = "lcd_tp_pwr";
+		regulator-name = "lcd_bl_pwr";
 		regulator-always-on;
 		enable-active-high;
 		status = "okay";
-		gpio = <&pca9555 PCA_IO1_7 GPIO_ACTIVE_HIGH>;
-	};
-*/
+		gpio = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
 
-	backlight_1: backlight-1 {
+	};
+
+
+	backlight_1: backlight {
         status = "okay";
         compatible = "pwm-backlight";
-		enable-gpios = <&pca9555 PCA_IO1_7 GPIO_ACTIVE_HIGH>;
-        pwms = <&pwm12 0 50000 1>;
+		//enable-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
+		pwms = <&pwm12 0 50000 1>;
         brightness-levels = <
              60  60  60  61  61  61  62  62
              62  63  63  63  64  64  64  65
@@ -248,7 +248,7 @@
         reg = <0x48>;
 
         himax,rst-gpio =  <&pca9555 PCA_IO1_3 GPIO_ACTIVE_HIGH>;
-        himax,irq-gpio = <&gpio3 RK_PC4 IRQ_TYPE_LEVEL_HIGH>;
+        himax,irq-gpio = <&gpio4 RK_PB2 IRQ_TYPE_LEVEL_HIGH>;
         pinctrl-names = "default";
         pinctrl-0 = <&touch_int0>;
 
@@ -301,9 +301,8 @@
         compatible = "simple-panel-dsi";
         reg = <0>;
         backlight = <&backlight_1>;
-
-        enable-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
-        reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
+		enable-gpios = <&pca9555 PCA_IO1_7 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio4 RK_PB3 GPIO_ACTIVE_LOW>;
 
         enable-delay-ms = <50>;
         prepare-delay-ms = <200>;
@@ -387,7 +386,7 @@
         compatible = "himax,hxcommon";
         reg = <0x48>;
 
-        himax,rst-gpio =  <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
+        himax,rst-gpio =  <&pca9555 PCA_IO1_6 GPIO_ACTIVE_HIGH>;
         himax,irq-gpio = <&gpio1 RK_PB5 IRQ_TYPE_LEVEL_HIGH>;
         pinctrl-names = "default";
         pinctrl-0 = <&touch_int1>;
@@ -408,7 +407,7 @@
             rockchip,pins = <1 RK_PB5 RK_FUNC_GPIO &pcfg_pull_up>;
         };
         touch_int0: touch-int0 {
-            rockchip,pins = <3 RK_PC4 RK_FUNC_GPIO &pcfg_pull_up>;
+            rockchip,pins = <4 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>;
         };
     };
 };

@@ -25,11 +25,11 @@
 };
 
 &mipi_dcphy0 {
-       status = "okay";
+        status = "okay";
 };
 
 &mipi_dcphy1 {
-       status = "okay";
+        status = "okay";
 };
 
 &csi2_dcphy0 {
