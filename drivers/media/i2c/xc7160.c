@@ -66,16 +66,6 @@
 #define XC7160_REG_VALUE_16BIT		2
 #define XC7160_REG_VALUE_24BIT		3
 
-#define	XC7160_EXPOSURE_MIN		4
-#define	XC7160_EXPOSURE_STEP		1
-#define XC7160_VTS_MAX			0x7fff
-#define XC7160_GAIN_MIN		0x10
-#define XC7160_GAIN_MAX		0xf8
-#define XC7160_GAIN_STEP		1
-#define XC7160_GAIN_DEFAULT		0x10
-
-
-
 static DEFINE_MUTEX(xc7160_power_mutex);
 
 #define OF_CAMERA_PINCTRL_STATE_DEFAULT	"rockchip,camera_default"
@@ -114,10 +104,6 @@ struct xc7160_mode {
 	u32 width;
 	u32 height;
 	struct v4l2_fract max_fps;
-	u32 hts_def;
-	u32 vts_def;
-	u32 exp_def;
-	u32 colorspace;
 	const struct regval *isp_reg_list;
 	const struct regval *sensor_reg_list;
 	u32 vc[PAD_MAX];
@@ -173,10 +159,6 @@ static const struct xc7160_mode supported_modes[] = {
 				.denominator = 300000,
 		},
 		.bus_fmt = XC7160_MEDIA_BUS_FMT,
-		.colorspace = V4L2_COLORSPACE_SRGB,
-		.exp_def = 0x000c,
-		.hts_def = 0x011E,
-		.vts_def = 0x20D0,
 		.isp_reg_list = xc7160_1080p_t20211011_regs,
 		.sensor_reg_list = sensor_30fps_t20211011_initial_regs,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
@@ -189,10 +171,6 @@ static const struct xc7160_mode supported_modes[] = {
 			.denominator = 250000,
 		},
 		.bus_fmt = XC7160_MEDIA_BUS_FMT,
-		.colorspace = V4L2_COLORSPACE_SRGB,
-		.exp_def = 0x000c,
-		.hts_def = 0x04E0,
-		.vts_def = 0x16DA,
 		.isp_reg_list =xc7160_4k_t20210826_regs,
 		.sensor_reg_list= sensor_25fps_t20210826_initial_regs,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
@@ -348,7 +326,6 @@ static int sc8238_write_reg(struct i2c_client *client, u16 reg,
 	return 0;
 }
 
-
 static int sc8238_read_reg(struct i2c_client *client, u16 reg,
 			    unsigned int len, u32 *val)
 {
@@ -362,13 +339,11 @@ static int sc8238_read_reg(struct i2c_client *client, u16 reg,
 		return -EINVAL;
 
 	data_be_p = (u8 *)&data_be;
-	/* Write register address */
 	msgs[0].addr = 0x30;
 	msgs[0].flags = 0;
 	msgs[0].len = 2;
 	msgs[0].buf = (u8 *)&reg_addr_be;
 
-	/* Read data from register */
 	msgs[1].addr = 0x30;
 	msgs[1].flags = I2C_M_RD;
 	msgs[1].len = len;
@@ -468,6 +443,7 @@ static int sc8238_check_sensor_id(struct xc7160 *xc7160,
 	
 }
 
+
 static int camera_isp_sensor_initial(struct xc7160 *xc7160)
 {
 	struct device *dev = &xc7160->client->dev;
@@ -483,23 +459,21 @@ static int camera_isp_sensor_initial(struct xc7160 *xc7160)
 	}
 
 	xc7160->initial_status = true;
-	ret=sc8238_check_sensor_id(xc7160,xc7160->client);
-	if(ret)
-		return ret;
 
+	msleep(10);
 	if( xc7160->isp_out_colorbar != true ){
-		xc7160_write_array(xc7160->client, xc7160_stream_off_regs);
 		ret = xc7160_write_array(xc7160->client, xc7160_i2c_bypass_on_regs);
 		if (ret) {
 			dev_err(dev, "could not set bypass on registers\n");
 			return ret;
 		} 	
-		msleep(1);
+		msleep(10);
 		i = sc8238_write_array(xc7160->client, sc8238_global_regs);
 		if (i){ 
 			dev_err(dev,  "could not set sensor_initial_regs\n");
 			xc7160->isp_out_colorbar = true;
 		}
+		msleep(10);
 		ret = xc7160_write_array(xc7160->client, xc7160_i2c_bypass_off_regs);
 		if (ret) {
 			dev_err(dev, "could not set bypass off registers\n");
@@ -542,8 +516,6 @@ static int xc7160_set_fmt(struct v4l2_subdev *sd,
 {
 	struct xc7160 *xc7160 = to_xc7160(sd);
 	const struct xc7160_mode *mode;
-	s64 h_blank, vblank_def;
-        //struct v4l2_ctrl_handler *handler;
 
 	mutex_lock(&xc7160->mutex);
 
@@ -572,13 +544,6 @@ static int xc7160_set_fmt(struct v4l2_subdev *sd,
 #endif
 	} else {
 		xc7160->cur_mode = mode;
-		h_blank = mode->hts_def - mode->width;
-		__v4l2_ctrl_modify_range(xc7160->hblank, h_blank,
-					 h_blank, 1, h_blank);
-		vblank_def = mode->vts_def - mode->height;
-		__v4l2_ctrl_modify_range(xc7160->vblank, vblank_def,
-					 XC7160_VTS_MAX - mode->height,
-					 1, vblank_def);
 		if (xc7160->streaming){
 			mutex_unlock(&xc7160->mutex);
 			return -EBUSY;
@@ -664,24 +629,6 @@ static int xc7160_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int xc7160_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
-                                 struct v4l2_mbus_config *config)
-{
-        u32 val = 0;
-		u32 xc7160_lanes = 0;
-		struct xc7160 *xc7160 = to_xc7160(sd);
-
-		xc7160_lanes = xc7160->lane_data_num;
-        val = 1 << (xc7160_lanes - 1) |
-        V4L2_MBUS_CSI2_CHANNEL_0 |
-        V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
-
-        config->type = V4L2_MBUS_CSI2_DPHY;
-        config->flags = val;
-
-        return 0;
-}
-
 static void xc7160_get_module_inf(struct xc7160 *xc7160,
 				   struct rkmodule_inf *inf)
 {
@@ -708,19 +655,10 @@ static long xc7160_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	struct xc7160 *xc7160 = to_xc7160(sd);
 	struct rkmodule_channel_info *ch_info;
 	long ret = 0;
-	u32 stream = 0;
 
 	switch (cmd) {
 	case RKMODULE_GET_MODULE_INFO:
 		xc7160_get_module_inf(xc7160, (struct rkmodule_inf *)arg);
-		break;
-	case RKMODULE_SET_QUICK_STREAM:
-		stream = *((u32 *)arg);
-		if (stream) {
-        		        ret = xc7160_write_array(xc7160->client, xc7160_stream_on_regs);			
-		} else {
-				ret = xc7160_write_array(xc7160->client, xc7160_stream_off_regs);
-		}
 		break;
 	case RKMODULE_GET_CHANNEL_INFO:
 		ch_info = (struct rkmodule_channel_info *)arg;
@@ -740,9 +678,7 @@ static long xc7160_compat_ioctl32(struct v4l2_subdev *sd,
 {
 	void __user *up = compat_ptr(arg);
 	struct rkmodule_inf *inf;
-	struct rkmodule_awb_cfg *cfg;
 	struct rkmodule_channel_info *ch_info;
-	u32  stream;
 	long ret;
 
 	switch (cmd) {
@@ -760,25 +696,6 @@ static long xc7160_compat_ioctl32(struct v4l2_subdev *sd,
                                ret = -EFAULT;
 		kfree(inf);
 		break;
-	case RKMODULE_AWB_CFG:
-		cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
-		if (!cfg) {
-			ret = -ENOMEM;
-			return ret;
-		}
-
-		ret = copy_from_user(cfg, up, sizeof(*cfg));
-		if (!ret)
-			ret = xc7160_ioctl(sd, cmd, cfg);
-               else
-                       ret = -EFAULT;
-		kfree(cfg);
-		break;
-        case RKMODULE_SET_QUICK_STREAM:
-                if (copy_from_user(&stream, up, sizeof(u32)))
-                        return -EFAULT;
-                ret = xc7160_ioctl(sd, cmd, &stream);
-                break;
 	case RKMODULE_GET_CHANNEL_INFO:
 		ch_info = kzalloc(sizeof(*ch_info), GFP_KERNEL);
 		if (!ch_info) {
@@ -892,7 +809,7 @@ static int __xc7160_start_stream(struct xc7160 *xc7160)
 		ret = xc7160_write_array(xc7160->client, xc7160_stream_on_regs);
 
 #ifdef FIREFLY_DEBUG
-		xc7160_check_isp_reg(xc7160);
+	xc7160_check_isp_reg(xc7160);
 #endif // DEBUG
 	
 	if(ret)
@@ -976,17 +893,6 @@ static int xc7160_s_power(struct v4l2_subdev *sd, int on)
 		if(ret){
 			dev_err(dev, "xc7160 power on failed\n");
 		}
-		xc7160->power_on = true;
-/*
-		if(xc7160->initial_status != true){
-			ret = camera_isp_sensor_initial(xc7160);
-		}
-*/
-		ret = xc7160_check_isp_id(xc7160,xc7160->client);
-		if (ret){
-			dev_err(dev, "write XC7160_REG_HIGH_SELECT failed\n");
-			goto unlock_and_return;
-		}
 		
 		/* export gpio */
 		if (!IS_ERR(xc7160->reset_gpio))
@@ -1061,7 +967,6 @@ static inline u32 xc7160_cal_delay(u32 cycles)
 static int __xc7160_power_on(struct xc7160 *xc7160)
 {
 	int ret;
-	u32 delay_us;
 	struct device *dev = &xc7160->client->dev;
 	
 	if (!IS_ERR_OR_NULL(xc7160->pins_default)) {
@@ -1080,13 +985,6 @@ static int __xc7160_power_on(struct xc7160 *xc7160)
 
 	msleep(4);
 
-	if (clkout_enabled_index){
-		ret = clk_prepare_enable(xc7160->xvclk);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable xvclk\n");
-			return ret;
-		}
-	}
 
 	ret = regulator_bulk_enable(XC7160_NUM_SUPPLIES, xc7160->supplies);
 	if (ret < 0) {
@@ -1097,20 +995,26 @@ static int __xc7160_power_on(struct xc7160 *xc7160)
 	if (!IS_ERR(xc7160->mipi_pwr_gpio))
 		gpiod_set_value_cansleep(xc7160->mipi_pwr_gpio, 1);
 
-
-	usleep_range(500, 1000);
-	if (!IS_ERR(xc7160->reset_gpio))
-		gpiod_set_value_cansleep(xc7160->reset_gpio, 1);
-
-	usleep_range(500, 1000);
 	if (!IS_ERR(xc7160->pwdn_gpio))
 		gpiod_set_value_cansleep(xc7160->pwdn_gpio, 1);
 
-	//  msleep(25);
-	// /* 8192 cycles prior to first SCCB transaction */
-	delay_us = xc7160_cal_delay(8192);
-	usleep_range(delay_us, delay_us * 2);
-	// xc7160->power_on = true;
+
+	msleep(5);
+
+	if (clkout_enabled_index){
+		ret = clk_prepare_enable(xc7160->xvclk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable xvclk\n");
+			return ret;
+		}
+	}
+
+	usleep_range(1, 1);
+	if (!IS_ERR(xc7160->reset_gpio))
+		gpiod_set_value_cansleep(xc7160->reset_gpio, 1);
+
+	msleep(30);
+	xc7160->power_on = true;
 
 	return 0;
 
@@ -1126,13 +1030,14 @@ static void __xc7160_power_off(struct xc7160 *xc7160)
 	int ret;
 	struct device *dev = &xc7160->client->dev;
 	xc7160->initial_status = false;
+	xc7160->power_on = false;
 
 	if (!IS_ERR(xc7160->reset_gpio))
-		gpiod_set_value_cansleep(xc7160->reset_gpio, 1);
+		gpiod_set_value_cansleep(xc7160->reset_gpio, 0);
 	if (!IS_ERR(xc7160->pwdn_gpio))
-		gpiod_set_value_cansleep(xc7160->pwdn_gpio,1);
+		gpiod_set_value_cansleep(xc7160->pwdn_gpio,0);
 	if (!IS_ERR(xc7160->mipi_pwr_gpio))
-		gpiod_set_value_cansleep(xc7160->mipi_pwr_gpio,1);
+		gpiod_set_value_cansleep(xc7160->mipi_pwr_gpio,0);
 	if (clkout_enabled_index)
 		clk_disable_unprepare(xc7160->xvclk);
 	if (!IS_ERR_OR_NULL(xc7160->pins_sleep)) {
@@ -1211,41 +1116,6 @@ static int xc7160_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 }
 #endif
 
-#if 1
-#define CROP_START(SRC, DST) (((SRC) - (DST)) / 2 / 4 * 4)
-#define DST_WIDTH_3840 3840
-#define DST_HEIGHT_2160 2160
-#define DST_WIDTH_1920 1920
-#define DST_HEIGHT_1080 1080
-static int xc7160_get_selection(struct v4l2_subdev *sd,
-                                struct v4l2_subdev_pad_config *cfg,
-                                struct v4l2_subdev_selection *sel)
-{
-        struct xc7160 *xc7160 = to_xc7160(sd);
-
-        if (sel->target == V4L2_SEL_TGT_CROP_BOUNDS) {
-                if (xc7160->cur_mode->width == 3840) {
-                        sel->r.left = CROP_START(xc7160->cur_mode->width, DST_WIDTH_3840);
-                        sel->r.width = DST_WIDTH_3840;
-                        sel->r.top = CROP_START(xc7160->cur_mode->height, DST_HEIGHT_2160);
-                        sel->r.height = DST_HEIGHT_2160;
-                } else if (xc7160->cur_mode->width == 1944) {
-                        sel->r.left = CROP_START(xc7160->cur_mode->width, DST_WIDTH_1920);
-                        sel->r.width = DST_WIDTH_1920;
-                        sel->r.top = CROP_START(xc7160->cur_mode->height, DST_HEIGHT_1080);
-                        sel->r.height = DST_HEIGHT_1080;
-                } else {
-                        sel->r.left = CROP_START(xc7160->cur_mode->width, xc7160->cur_mode->width);
-                        sel->r.width = xc7160->cur_mode->width;
-                        sel->r.top = CROP_START(xc7160->cur_mode->height, xc7160->cur_mode->height);
-                        sel->r.height = xc7160->cur_mode->height;
-                }
-                return 0;
-        }
-        return -EINVAL;
-}
-#endif
-
 static const struct dev_pm_ops xc7160_pm_ops = {
 	SET_RUNTIME_PM_OPS(xc7160_runtime_suspend,
 			   xc7160_runtime_resume, NULL)
@@ -1271,7 +1141,6 @@ static const struct v4l2_subdev_core_ops xc7160_core_ops = {
 static const struct v4l2_subdev_video_ops xc7160_video_ops = {
 	.s_stream = xc7160_s_stream,
 	.g_frame_interval = xc7160_g_frame_interval,
-	.s_frame_interval = xc7160_g_frame_interval,
 };
 
 static const struct v4l2_subdev_pad_ops xc7160_pad_ops = {
@@ -1280,8 +1149,6 @@ static const struct v4l2_subdev_pad_ops xc7160_pad_ops = {
 	.enum_frame_interval = xc7160_enum_frame_interval,
 	.get_fmt = xc7160_get_fmt,
 	.set_fmt = xc7160_set_fmt,
-	.get_selection = xc7160_get_selection,
-	.get_mbus_config = xc7160_g_mbus_config,
 };
 
 static const struct v4l2_subdev_ops xc7160_subdev_ops = {
@@ -1290,42 +1157,10 @@ static const struct v4l2_subdev_ops xc7160_subdev_ops = {
 	.pad	= &xc7160_pad_ops,
 };
 
-static int xc7160_set_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct xc7160 *xc7160 = container_of(ctrl->handler,
-					     struct xc7160, ctrl_handler);
-	struct i2c_client *client = xc7160->client;
-	s64 max;
-
-	/* Propagate change of current control to all related controls */
-	switch (ctrl->id) {
-	case V4L2_CID_VBLANK:
-		/* Update max exposure while meeting expected vblanking */
-		max = xc7160->cur_mode->height + ctrl->val - 4;
-		__v4l2_ctrl_modify_range(xc7160->exposure,
-					 xc7160->exposure->minimum, max,
-					 xc7160->exposure->step,
-					 xc7160->exposure->default_value);
-		break;
-	}
-	if (!pm_runtime_get_if_in_use(&client->dev))
-		return 0;
-
-	pm_runtime_put(&client->dev);
-	return 0;
-}
-
-static const struct v4l2_ctrl_ops xc7160_ctrl_ops = {
-	.s_ctrl = xc7160_set_ctrl,
-};
-
 static int xc7160_initialize_controls(struct xc7160 *xc7160)
 {
 	const struct xc7160_mode *mode;
 	struct v4l2_ctrl_handler *handler;
-	//struct v4l2_ctrl *ctrl;
-	s64 exposure_max, vblank_def;
-	u32 h_blank;
 	int ret;
 
 	handler = &xc7160->ctrl_handler;
@@ -1341,35 +1176,7 @@ static int xc7160_initialize_controls(struct xc7160 *xc7160)
 		xc7160->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	xc7160->pixel_rate = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
-			  0, XC7160_PIXEL_RATE_HIGH, 1, XC7160_PIXEL_RATE_HIGH);
-
-	h_blank = mode->hts_def - mode->width;
-	xc7160->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
-				h_blank, h_blank, 1, h_blank);
-	if (xc7160->hblank)
-		xc7160->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
-
-	vblank_def = mode->vts_def - mode->height;
-	xc7160->vblank = v4l2_ctrl_new_std(handler, &xc7160_ctrl_ops,
-				V4L2_CID_VBLANK, vblank_def,
-				XC7160_VTS_MAX - mode->height,
-				1, vblank_def);
-
-	exposure_max = mode->vts_def - 4;
-	xc7160->exposure = v4l2_ctrl_new_std(handler, &xc7160_ctrl_ops,
-				V4L2_CID_EXPOSURE, XC7160_EXPOSURE_MIN,
-				exposure_max, XC7160_EXPOSURE_STEP,
-				mode->exp_def);
-
-	xc7160->anal_gain = v4l2_ctrl_new_std(handler, &xc7160_ctrl_ops,
-				V4L2_CID_ANALOGUE_GAIN, XC7160_GAIN_MIN,
-				XC7160_GAIN_MAX, XC7160_GAIN_STEP,
-				XC7160_GAIN_DEFAULT);
-
-	xc7160->test_pattern = v4l2_ctrl_new_std_menu_items(handler,
-				&xc7160_ctrl_ops, V4L2_CID_TEST_PATTERN,
-				ARRAY_SIZE(xc7160_test_pattern_menu) - 1,
-				0, 0, xc7160_test_pattern_menu);
+			  0, XC7160_PIXEL_RATE_HIGH, 1, XC7160_PIXEL_RATE_LOW);
 
 	if (handler->error) {
 		ret = handler->error;
@@ -1413,40 +1220,41 @@ static void free_gpio(struct xc7160 *xc7160)
 }
 
 static int xc7160_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+		const struct i2c_device_id *id)
 {
 	struct device *dev = &client->dev;
 	struct device_node *node = dev->of_node;
-	//struct device_node *endpoint_node = NULL;
-	//struct v4l2_fwnode_endpoint vep;
+	struct device_node *endpoint_node = NULL;
+	struct v4l2_fwnode_endpoint vep = {0};
 	struct xc7160 *xc7160;
 	struct v4l2_subdev *sd;
 	char facing[2];
 	int ret;
-	//u32 val = 0;
 
 	dev_info(dev, "T-chip firefly camera driver version: %02x.%02x.%02x",
-		DRIVER_VERSION >> 16,
-		(DRIVER_VERSION & 0xff00) >> 8,
-		DRIVER_VERSION & 0x00ff);
+			DRIVER_VERSION >> 16,
+			(DRIVER_VERSION & 0xff00) >> 8,
+			DRIVER_VERSION & 0x00ff);
 
 	xc7160 = devm_kzalloc(dev, sizeof(*xc7160), GFP_KERNEL);
 	if (!xc7160)
 		return -ENOMEM;
 
+/* Model info */
 	ret = of_property_read_u32(node, RKMODULE_CAMERA_MODULE_INDEX,
-				   &xc7160->module_index);
+			&xc7160->module_index);
 	ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_FACING,
-				       &xc7160->module_facing);
+			&xc7160->module_facing);
 	ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_NAME,
-				       &xc7160->module_name);
+			&xc7160->module_name);
 	ret |= of_property_read_string(node, RKMODULE_CAMERA_LENS_NAME,
-				       &xc7160->len_name);
+			&xc7160->len_name);
 	if (ret) {
 		dev_err(dev, "could not get module information!\n");
 		return -EINVAL;
 	}
 
+/* Parse dts Clk、Pwr、PDN、Rest */
 	xc7160->client = client;
 	xc7160->cur_mode = &supported_modes[0];
 
@@ -1471,12 +1279,12 @@ static int xc7160_probe(struct i2c_client *client,
 
 	xc7160->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(xc7160->reset_gpio)) {
-	   dev_info(dev, "Failed to get reset-gpios, maybe no use\n");
+		dev_info(dev, "Failed to get reset-gpios, maybe no use\n");
 	}
 
 	xc7160->pwdn_gpio = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_LOW);
 	if (IS_ERR(xc7160->pwdn_gpio)) {
-	  dev_info(dev, "Failed to get pwdn-gpios, maybe no use\n");
+		dev_info(dev, "Failed to get pwdn-gpios, maybe no use\n");
 	}
 
 	ret = xc7160_configure_regulators(xc7160);
@@ -1489,53 +1297,70 @@ static int xc7160_probe(struct i2c_client *client,
 	if (!IS_ERR(xc7160->pinctrl)) {
 		xc7160->pins_default =
 			pinctrl_lookup_state(xc7160->pinctrl,
-					     OF_CAMERA_PINCTRL_STATE_DEFAULT);
+					OF_CAMERA_PINCTRL_STATE_DEFAULT);
 		if (IS_ERR(xc7160->pins_default))
 			dev_err(dev, "could not get default pinstate\n");
 
 		xc7160->pins_sleep =
 			pinctrl_lookup_state(xc7160->pinctrl,
-					     OF_CAMERA_PINCTRL_STATE_SLEEP);
+					OF_CAMERA_PINCTRL_STATE_SLEEP);
 		if (IS_ERR(xc7160->pins_sleep))
 			dev_err(dev, "could not get sleep pinstate\n");
 	}
 
-	xc7160->isp_out_colorbar = true;
-	//endpoint_node = of_find_node_by_name(node,"endpoint");
-	//if(endpoint_node != NULL){
-	//	//printk("xc7160 get endpoint node success\n");
-	//	ret=v4l2_fwnode_endpoint_parse(&endpoint_node->fwnode, &vep);
-	//	if(ret){
-	//		dev_info(dev, "Failed to get xc7160 endpoint data lanes, set a default value\n");
-	//		xc7160->lane_data_num = 4;
-	//	}else{
-	//		dev_info(dev, "Success to get xc7160 endpoint data lanes, dts uses %d lanes\n", vep.bus.mipi_csi2.num_data_lanes);
-	//		xc7160->lane_data_num = vep.bus.mipi_csi2.num_data_lanes;
-	//	}
-	//}else{
-	//	dev_info(dev,"xc7160 get endpoint node failed\n");
-	//	return -ENOENT;
-	//}
-	xc7160->lane_data_num = XC7160_LANES;
-	dev_info(dev,"xc7160 num data lanes is %d\n", xc7160->lane_data_num);
+/* Enable colorbar mode */
+	//xc7160->isp_out_colorbar = true;
+
+/* Parse lane number */ 
+	endpoint_node = of_find_node_by_name(node,"endpoint");
+	if(endpoint_node != NULL){
+		//printk("xc7160 get endpoint node success\n");
+		ret=v4l2_fwnode_endpoint_parse(&endpoint_node->fwnode, &vep);
+		if(ret){
+			dev_info(dev, "Failed to get xc7160 endpoint data lanes, set a default value\n");
+			xc7160->lane_data_num = 4;
+		}else{
+			dev_info(dev, "Success to get xc7160 endpoint data lanes, dts uses %d lanes\n", vep.bus.mipi_csi2.num_data_lanes);
+			xc7160->lane_data_num = vep.bus.mipi_csi2.num_data_lanes;
+		}
+	}else{
+		dev_info(dev,"xc7160 get endpoint node failed\n");
+		return -ENOENT;
+	}
 
 	mutex_init(&xc7160->mutex);
-
+	
+/* Init v4l2 subdev */
 	sd = &xc7160->subdev;
 	v4l2_i2c_subdev_init(sd, client, &xc7160_subdev_ops);
+	
 	ret = xc7160_initialize_controls(xc7160);
 	if (ret)
 		goto err_destroy_mutex;
 
+/* Check chip id */
 	ret = __xc7160_power_on(xc7160);
 	if (ret) {
 		dev_err(dev, "--xc--__xc7160_power_on failed\n");
 		goto err_power_off;
 	}
 
+	ret = xc7160_write_array(xc7160->client, xc7160_global_regs);
+	if(ret){
+		dev_err(dev, "could not set init registers\n");
+		return ret;
+	}
+
 	ret = xc7160_check_isp_id(xc7160, client);
 	if (ret)
 		goto err_power_off;
+	
+	ret = sc8238_check_sensor_id(xc7160,xc7160->client);
+	if(ret)
+		goto err_power_off;
+
+	__xc7160_power_off(xc7160);
+
 
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
 	sd->internal_ops = &xc7160_internal_ops;
@@ -1547,7 +1372,7 @@ static int xc7160_probe(struct i2c_client *client,
 	ret = media_entity_pads_init(&sd->entity, 1, &xc7160->pad);
 	if (ret < 0)
 		goto err_power_off;
-	
+
 #endif
 
 	memset(facing, 0, sizeof(facing));
@@ -1557,8 +1382,8 @@ static int xc7160_probe(struct i2c_client *client,
 		facing[0] = 'f';
 
 	snprintf(sd->name, sizeof(sd->name), "m%02d_%s_%s %s",
-		 xc7160->module_index, facing,
-		 XC7160_NAME, dev_name(sd->dev));
+			xc7160->module_index, facing,
+			XC7160_NAME, dev_name(sd->dev));
 	ret = v4l2_async_register_subdev_sensor_common(sd);
 	if (ret) {
 		dev_err(dev, "v4l2 async register subdev failed\n");
@@ -1578,7 +1403,7 @@ err_clean_entity:
 err_power_off:
 	__xc7160_power_off(xc7160);
 	free_gpio(xc7160);
-//err_free_handler:
+	//err_free_handler:
 	v4l2_ctrl_handler_free(&xc7160->ctrl_handler);
 err_destroy_mutex:
 	mutex_destroy(&xc7160->mutex);
