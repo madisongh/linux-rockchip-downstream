@@ -732,6 +732,7 @@ struct rkcif_device {
 	bool				reset_work_cancel;
 	bool				iommu_en;
 	bool				is_use_dummybuf;
+	bool				is_yuv_camera;
 	int				sync_type;
 	int				sditf_cnt;
 };

@@ -140,6 +140,7 @@
 
 &rkcif_mipi_lvds2 {
 	status = "okay";
+	firefly,yuv_camera;
 
 	port {
 		cif_mipi2_in0: endpoint {

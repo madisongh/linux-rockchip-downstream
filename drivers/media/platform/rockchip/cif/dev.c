@@ -1911,6 +1911,11 @@ static void rkcif_parse_dts(struct rkcif_device *cif_dev)
 	if (ret != 0)
 		cif_dev->wait_line = 0;
 	dev_info(cif_dev->dev, "rkcif wait line %d\n", cif_dev->wait_line);
+
+	cif_dev->is_yuv_camera = of_property_read_bool(node, "firefly,yuv_camera");
+	if(cif_dev->is_yuv_camera) {
+		dev_info(cif_dev->dev, "Is yuv camera\n");
+	}
 }
 
 static int rkcif_plat_probe(struct platform_device *pdev)

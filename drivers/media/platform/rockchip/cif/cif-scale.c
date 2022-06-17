@@ -435,12 +435,14 @@ static int rkcif_scale_fh_open(struct file *file)
 		rkcif_soft_reset(cifdev, true);
 	atomic_inc(&cifdev->fh_cnt);
 	mutex_unlock(&cifdev->stream_lock);
-
-	ret = v4l2_fh_open(file);
-	if (!ret) {
-		ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
-		if (ret < 0)
-			vb2_fop_release(file);
+	
+	if(!cifdev->is_yuv_camera) {
+		ret = v4l2_fh_open(file);
+		if (!ret) {
+			ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
+			if (ret < 0)
+				vb2_fop_release(file);
+		}
 	}
 
 	return ret;
@@ -453,11 +455,13 @@ static int rkcif_scale_fop_release(struct file *file)
 	struct rkcif_scale_vdev *scale_vdev = to_rkcif_scale_vdev(vnode);
 	struct rkcif_device *cifdev = scale_vdev->cifdev;
 	int ret;
+	
 
-	ret = vb2_fop_release(file);
-	if (!ret)
-		v4l2_pipeline_pm_put(&vnode->vdev.entity);
-
+	if(!cifdev->is_yuv_camera) {
+		ret = vb2_fop_release(file);
+		if (!ret)
+			v4l2_pipeline_pm_put(&vnode->vdev.entity);
+	}
 	pm_runtime_put_sync(cifdev->dev);
 	return ret;
 }

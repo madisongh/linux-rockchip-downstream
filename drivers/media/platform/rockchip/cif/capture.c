@@ -4809,12 +4809,14 @@ static int rkcif_fh_open(struct file *filp)
 	} else {
 		rkcif_soft_reset(cifdev, true);
 	}
-
-	ret = v4l2_fh_open(filp);
-	if (!ret) {
-		ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
-		if (ret < 0)
-			vb2_fop_release(filp);
+	
+	if(vdev->index == 0 || !cifdev->is_yuv_camera) {
+		ret = v4l2_fh_open(filp);
+		if (!ret) {
+			ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
+			if (ret < 0)
+				vb2_fop_release(filp);
+		}
 	}
 
 	return ret;
@@ -4828,10 +4830,11 @@ static int rkcif_fh_release(struct file *filp)
 	struct rkcif_device *cifdev = stream->cifdev;
 	int ret = 0;
 
-	ret = vb2_fop_release(filp);
-	if (!ret)
-		v4l2_pipeline_pm_put(&vnode->vdev.entity);
-
+	if(vdev->index == 0 || !cifdev->is_yuv_camera) {
+		ret = vb2_fop_release(filp);
+		if (!ret)
+			v4l2_pipeline_pm_put(&vnode->vdev.entity);
+	}
 	mutex_lock(&cifdev->stream_lock);
 	if (!atomic_dec_return(&cifdev->fh_cnt))
 		rkcif_soft_reset(cifdev, true);
@@ -5456,7 +5459,6 @@ static int rkcif_register_stream_vdev(struct rkcif_stream *stream,
 		if (dev->inf_id == RKCIF_MIPI_LVDS) {
 			switch (stream->id) {
 			case RKCIF_STREAM_MIPI_ID0:
-				vdev_name = CIF_MIPI_ID0_VDEV_NAME;
 				break;
 			case RKCIF_STREAM_MIPI_ID1:
 				vdev_name = CIF_MIPI_ID1_VDEV_NAME;
