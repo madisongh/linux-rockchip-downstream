@@ -877,7 +877,6 @@ static int xc7160_s_power(struct v4l2_subdev *sd, int on)
 	int ret = 0;
 
 	mutex_lock(&xc7160->mutex);
-
 	/* If the power state is not modified - no work to do. */
 	if (xc7160->power_on == !!on)
 		goto unlock_and_return;
@@ -969,22 +968,13 @@ static int __xc7160_power_on(struct xc7160 *xc7160)
 	int ret;
 	struct device *dev = &xc7160->client->dev;
 	
+
 	if (!IS_ERR_OR_NULL(xc7160->pins_default)) {
 		ret = pinctrl_select_state(xc7160->pinctrl,
 					   xc7160->pins_default);
 		if (ret < 0)
 			dev_err(dev, "could not set pins\n");
 	}
-
-	if (!IS_ERR(xc7160->reset_gpio))
-		gpiod_set_value_cansleep(xc7160->reset_gpio, 0);	
-
-
-	if (!IS_ERR(xc7160->pwdn_gpio))
-		gpiod_set_value_cansleep(xc7160->pwdn_gpio, 0);
-
-	msleep(4);
-
 
 	ret = regulator_bulk_enable(XC7160_NUM_SUPPLIES, xc7160->supplies);
 	if (ret < 0) {
@@ -1307,9 +1297,6 @@ static int xc7160_probe(struct i2c_client *client,
 		if (IS_ERR(xc7160->pins_sleep))
 			dev_err(dev, "could not get sleep pinstate\n");
 	}
-
-/* Enable colorbar mode */
-	//xc7160->isp_out_colorbar = true;
 
 /* Parse lane number */ 
 	endpoint_node = of_find_node_by_name(node,"endpoint");
