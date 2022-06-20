@@ -41,8 +41,6 @@
 #include <linux/of_gpio.h>
 #include "xc7160_regs.h"
 
-
-
 //#define 		FIREFLY_DEBUG 0
 #define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x04)
 #define XC7160_MEDIA_BUS_FMT MEDIA_BUS_FMT_UYVY8_2X8 //MEDIA_BUS_FMT_YUYV8_2X8
@@ -85,8 +83,8 @@ static DEFINE_MUTEX(xc7160_power_mutex);
 
 #define SC8238_RETRY_STABLE_TIME 5
 
-static const struct regval *xc7160_global_regs = xc7160_1080p_t20211011_regs;
-static const struct regval *sc8238_global_regs = sensor_30fps_t20211011_initial_regs;
+static const struct regval *xc7160_global_regs = isp_xc7160_1080p_30fps_2022617_regs;
+static const struct regval *sc8238_global_regs = sensor_xc7160_1080p_30fps_2022617_regs;
 static u32 clkout_enabled_index = 1;
 
 static const char * const xc7160_supply_names[] = {
@@ -159,8 +157,8 @@ static const struct xc7160_mode supported_modes[] = {
 				.denominator = 300000,
 		},
 		.bus_fmt = XC7160_MEDIA_BUS_FMT,
-		.isp_reg_list = xc7160_1080p_t20211011_regs,
-		.sensor_reg_list = sensor_30fps_t20211011_initial_regs,
+		.isp_reg_list = isp_xc7160_1080p_30fps_2022617_regs,
+		.sensor_reg_list = sensor_xc7160_1080p_30fps_2022617_regs,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 	},
 	{
@@ -171,8 +169,8 @@ static const struct xc7160_mode supported_modes[] = {
 			.denominator = 250000,
 		},
 		.bus_fmt = XC7160_MEDIA_BUS_FMT,
-		.isp_reg_list =xc7160_4k_t20210826_regs,
-		.sensor_reg_list= sensor_25fps_t20210826_initial_regs,
+		.isp_reg_list = isp_xc7160_4k_25fps_2022617_regs,
+		.sensor_reg_list= sensor_xc7160_4k_25fps_2022617_regs,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 	},
 
@@ -225,14 +223,21 @@ static int xc7160_write_reg(struct i2c_client *client, u16 reg,
 static int xc7160_write_array(struct i2c_client * client,
 			       const struct regval *regs)
 {
-	u32 i;
+	u32 i = 0;
 	int ret = 0;
 	u8 value = 0;
 	struct xc7160* xc7160 = NULL;
 
 	xc7160 = to_xc7160(dev_get_drvdata(&client->dev));
 
-	for (i = 0; ret == 0 && regs[i].addr != REG_NULL; i++){
+	while(true) {
+		if (regs[i].addr == REG_NULL) {
+			if (regs[i].val == REG_DL) 
+				msleep(5);
+			else
+				break;
+	
+		}
 		value = regs[i].val;
 		if(regs[i].addr == 0x2023 && xc7160 != NULL){
 			if(xc7160->lane_data_num == 2 )
@@ -245,7 +250,7 @@ static int xc7160_write_array(struct i2c_client * client,
 			dev_err(&client->dev,"%s: write xc7160 array reg 0x%02x failed\n",__func__,regs[i].addr);
 			return ret;
 		}
-
+		i++;
 	}
 	return ret;
 }
