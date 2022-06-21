@@ -73,11 +73,11 @@ static DEFINE_MUTEX(xc7160_power_mutex);
 #define XC7160_LANES 			4
 
 #define XC7160_LINK_FREQ_XXX_MHZ_L	504000000U
-#define XC7160_LINK_FREQ_XXX_MHZ_H      576000000
+#define XC7160_LINK_FREQ_XXX_MHZ_H      576000000U
 
 /* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
-#define XC7160_PIXEL_RATE_LOW		(XC7160_LINK_FREQ_XXX_MHZ_L *2 *4/10)
-#define XC7160_PIXEL_RATE_HIGH		460800000U
+#define XC7160_PIXEL_RATE_LOW		336000000U // (XC7160_LINK_FREQ_XXX_MHZ_L *2 *4/12)
+#define XC7160_PIXEL_RATE_HIGH		384000000U // (XC7160_LINK_FREQ_XXX_MHZ_H *2 *4/12)
 
 #define XC7160_XVCLK_FREQ		24000000
 
@@ -799,13 +799,6 @@ static int __xc7160_start_stream(struct xc7160 *xc7160)
 	int ret;
 	struct device *dev = &xc7160->client->dev;
 	
-	/*if the application doesn't call xxx_set_fmt, we initial isp and sensor  here*/
-	if(xc7160->initial_status != true){
-		xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
-		sc8238_global_regs = xc7160->cur_mode->sensor_reg_list;	
-		camera_isp_sensor_initial(xc7160);
-	}
-	
 	//xc7160->isp_out_colorbar = true;
 	if(xc7160->isp_out_colorbar == true){
 		dev_info(dev, "colorbar on !!!\n");
@@ -898,6 +891,12 @@ static int xc7160_s_power(struct v4l2_subdev *sd, int on)
 			dev_err(dev, "xc7160 power on failed\n");
 		}
 		
+		if(xc7160->initial_status != true){
+			xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
+			sc8238_global_regs = xc7160->cur_mode->sensor_reg_list;	
+			camera_isp_sensor_initial(xc7160);
+		}
+	
 		/* export gpio */
 		if (!IS_ERR(xc7160->reset_gpio))
 			gpiod_export(xc7160->reset_gpio, false);
@@ -1171,7 +1170,7 @@ static int xc7160_initialize_controls(struct xc7160 *xc7160)
 		xc7160->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	xc7160->pixel_rate = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
-			  0, XC7160_PIXEL_RATE_HIGH, 1, XC7160_PIXEL_RATE_LOW);
+			  0, XC7160_PIXEL_RATE_HIGH, 1, XC7160_PIXEL_RATE_HIGH);
 
 	if (handler->error) {
 		ret = handler->error;
