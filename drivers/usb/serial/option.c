@@ -588,6 +588,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(0x2C7C, 0x6026) }, /* Quectel EC200 */
 	{ USB_DEVICE(0x2C7C, 0x6120) }, /* Quectel UC200 */
 	{ USB_DEVICE(0x2C7C, 0x6000) }, /* Quectel EC200/UC200 */
+	{ .match_flags = USB_DEVICE_ID_MATCH_VENDOR, .idVendor = 0x2C7C }, /* Match All Quectel Modules */
 #endif
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_COLT) },
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA) },
@@ -1193,6 +1194,10 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE_INTERFACE_CLASS(TELIT_VENDOR_ID, TELIT_PRODUCT_LE920A4_1213, 0xff) },
 	{ USB_DEVICE(TELIT_VENDOR_ID, TELIT_PRODUCT_LE920A4_1214),
 	  .driver_info = NCTRL(0) | RSVD(1) | RSVD(2) | RSVD(3) },
+	{ USB_DEVICE(TELIT_VENDOR_ID, 0x1260),
+	  .driver_info = NCTRL(0) | RSVD(1) | RSVD(2) },
+	{ USB_DEVICE(TELIT_VENDOR_ID, 0x1261),
+	  .driver_info = NCTRL(0) | RSVD(1) | RSVD(2) },
 	{ USB_DEVICE(TELIT_VENDOR_ID, 0x1900),				/* Telit LN940 (QMI) */
 	  .driver_info = NCTRL(0) | RSVD(1) },
 	{ USB_DEVICE_INTERFACE_CLASS(TELIT_VENDOR_ID, 0x1901, 0xff),	/* Telit LN940 (MBIM) */
@@ -1361,6 +1366,7 @@ static const struct usb_device_id option_ids[] = {
 	  .driver_info = RSVD(4) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0414, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x0417, 0xff, 0xff, 0xff) },
+	{ USB_DEVICE_INTERFACE_CLASS(ZTE_VENDOR_ID, 0x0601, 0xff) },	/* GosunCn ZTE WeLink ME3630 (RNDIS mode) */
 	{ USB_DEVICE_INTERFACE_CLASS(ZTE_VENDOR_ID, 0x0602, 0xff) },	/* GosunCn ZTE WeLink ME3630 (MBIM mode) */
 	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, 0x1008, 0xff, 0xff, 0xff),
 	  .driver_info = RSVD(4) },
@@ -1794,6 +1800,8 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(ALINK_VENDOR_ID, SIMCOM_PRODUCT_SIM7100E),
 	  .driver_info = RSVD(5) | RSVD(6) },
 	{ USB_DEVICE_INTERFACE_CLASS(0x1e0e, 0x9003, 0xff) },	/* Simcom SIM7500/SIM7600 MBIM mode */
+	{ USB_DEVICE_INTERFACE_CLASS(0x1e0e, 0x9011, 0xff),	/* Simcom SIM7500/SIM7600 RNDIS mode */
+	  .driver_info = RSVD(7) },
 	{ USB_DEVICE(ALCATEL_VENDOR_ID, ALCATEL_PRODUCT_X060S_X200),
 	  .driver_info = NCTRL(0) | NCTRL(1) | RSVD(4) },
 	{ USB_DEVICE(ALCATEL_VENDOR_ID, ALCATEL_PRODUCT_X220_X500D),
@@ -2057,14 +2065,28 @@ static int option_probe(struct usb_serial *serial,
 
 	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x2C7C)) {
 		__u16 idProduct = le16_to_cpu(serial->dev->descriptor.idProduct);
+		__u8 bInterfaceNumber = serial->interface->cur_altsetting->desc.bInterfaceNumber;
 
 		//Quectel module's some interfaces can be used as USB Network device (ecm, rndis, mbim)
 		if (serial->interface->cur_altsetting->desc.bInterfaceClass != 0xFF)
 			return -ENODEV;
 
-		//Quectel EC25&EC20's interface 4 can be used as USB network device (qmi)
-		if ((idProduct != 0x6026 && idProduct != 0x6120) && serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)
-			return -ENODEV;
+		if ((idProduct&0xF000) == 0x6000) {
+			//ASR interface 4 is modem port
+		}
+		else if ((idProduct&0xF000) == 0x8000) {
+			//HISI interface 0 is NCM
+			if (bInterfaceNumber == 0)
+				return -ENODEV;
+		}
+		else if ((idProduct&0xFF00) == 0x0900) {
+			//RG500U
+		}
+		else if ((idProduct&0xF000) == 0x0000) {
+			//MDM interface 4 is QMI
+			if (bInterfaceNumber == 4)
+				return -ENODEV;
+		}
 	}
 #endif
 
