@@ -1339,7 +1339,7 @@ static int xc7160_probe(struct i2c_client *client,
 	ret = xc7160_write_array(xc7160->client, xc7160_global_regs);
 	if(ret){
 		dev_err(dev, "could not set init registers\n");
-		return ret;
+		goto err_power_off;
 	}
 
 	ret = xc7160_check_isp_id(xc7160, client);
