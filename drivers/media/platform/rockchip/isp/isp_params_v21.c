@@ -3832,7 +3832,6 @@ rkisp_params_first_cfg_v2x(struct rkisp_isp_params_vdev *params_vdev)
 	struct rkisp_isp_params_val_v21 *priv_val =
 		(struct rkisp_isp_params_val_v21 *)params_vdev->priv_val;
 
-	rkisp_alloc_bay3d_buf(params_vdev, params_vdev->isp21_params);
 	dev->is_bigmode = rkisp_params_check_bigmode_v21(params_vdev);
 	spin_lock(&params_vdev->config_lock);
 	/* override the default things */
@@ -3867,6 +3866,7 @@ static void rkisp_save_first_param_v2x(struct rkisp_isp_params_vdev *params_vdev
 
 	new_params = (struct isp21_isp_params_cfg *)param;
 	*params_vdev->isp21_params = *new_params;
+	rkisp_alloc_bay3d_buf(params_vdev, params_vdev->isp21_params);
 }
 
 static void rkisp_clear_first_param_v2x(struct rkisp_isp_params_vdev *params_vdev)
@@ -4081,10 +4081,14 @@ rkisp_params_cfg_v2x(struct rkisp_isp_params_vdev *params_vdev,
 			list_del(&cur_buf->queue);
 			if (list_empty(&params_vdev->params))
 				break;
-			else if (new_params->module_en_update) {
+			else if (new_params->module_en_update ||
+				 (new_params->module_cfg_update & ISP2X_MODULE_FORCE)) {
 				/* update en immediately */
+				__isp_isr_meas_config(params_vdev, new_params, type);
+				__isp_isr_other_config(params_vdev, new_params, type);
 				__isp_isr_other_en(params_vdev, new_params, type);
 				__isp_isr_meas_en(params_vdev, new_params, type);
+				new_params->module_cfg_update = 0;
 			}
 			if (new_params->module_cfg_update & ISP2X_MODULE_LDCH)
 				ldch_data_abandon(params_vdev, new_params);
@@ -4118,6 +4122,7 @@ rkisp_params_cfg_v2x(struct rkisp_isp_params_vdev *params_vdev,
 		priv_val->last_hdrdrc = priv_val->cur_hdrdrc;
 		priv_val->cur_hdrmge = new_params->others.hdrmge_cfg;
 		priv_val->cur_hdrdrc = new_params->others.drc_cfg;
+		new_params->module_cfg_update = 0;
 		vb2_buffer_done(&cur_buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 		cur_buf = NULL;
 	}

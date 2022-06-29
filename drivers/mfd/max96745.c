@@ -32,29 +32,57 @@ static const struct mfd_cell max96745_devs[] = {
 	},
 };
 
+static bool max96745_volatile_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case 0x0028 ... 0x0029:
+	case 0x0032 ... 0x0033:
+	case 0x0076:
+	case 0x0086:
+	case 0x0100:
+	case 0x0200 ... 0x02ce:
+	case 0x7000:
+	case 0x7070:
+	case 0x7074:
+		return false;
+	default:
+		return true;
+	}
+}
+
 static const struct regmap_config max96745_regmap_config = {
 	.name = "max96745",
 	.reg_bits = 16,
 	.val_bits = 8,
 	.max_register = 0x8000,
+	.volatile_reg = max96745_volatile_reg,
+	.cache_type = REGCACHE_RBTREE,
 };
 
 static int max96745_select(struct i2c_mux_core *muxc, u32 chan)
 {
 	struct max96745 *max96745 = dev_get_drvdata(muxc->dev);
 
-	if (chan == 0) {
-		regmap_update_bits(max96745->regmap, 0x0028, LINK_EN,
-				   FIELD_PREP(LINK_EN, 1));
-	} else if (chan == 1) {
-		regmap_update_bits(max96745->regmap, 0x0032, LINK_EN,
-				   FIELD_PREP(LINK_EN, 1));
-	} else {
-		regmap_update_bits(max96745->regmap, 0x0028, LINK_EN,
-				   FIELD_PREP(LINK_EN, 1));
-		regmap_update_bits(max96745->regmap, 0x0032, LINK_EN,
-				   FIELD_PREP(LINK_EN, 1));
-	}
+	if (chan == 1)
+		regmap_update_bits(max96745->regmap, 0x0086, DIS_REM_CC,
+				   FIELD_PREP(DIS_REM_CC, 0));
+	else
+		regmap_update_bits(max96745->regmap, 0x0076, DIS_REM_CC,
+				   FIELD_PREP(DIS_REM_CC, 0));
+
+	return 0;
+}
+
+static int max96745_deselect(struct i2c_mux_core *muxc, u32 chan)
+{
+	struct max96745 *max96745 = dev_get_drvdata(muxc->dev);
+
+	if (chan == 1)
+		regmap_update_bits(max96745->regmap, 0x0086, DIS_REM_CC,
+				   FIELD_PREP(DIS_REM_CC, 1));
+	else
+		regmap_update_bits(max96745->regmap, 0x0076, DIS_REM_CC,
+				   FIELD_PREP(DIS_REM_CC, 1));
 
 	return 0;
 }
@@ -88,6 +116,11 @@ static int max96745_power_on(struct max96745 *max96745)
 
 	msleep(100);
 
+	regmap_update_bits(max96745->regmap, 0x0076, DIS_REM_CC,
+			   FIELD_PREP(DIS_REM_CC, 1));
+	regmap_update_bits(max96745->regmap, 0x0086, DIS_REM_CC,
+			   FIELD_PREP(DIS_REM_CC, 1));
+
 	return 0;
 }
 
@@ -110,8 +143,9 @@ static int max96745_i2c_probe(struct i2c_client *client)
 	if (!max96745)
 		return -ENOMEM;
 
-	max96745->muxc = i2c_mux_alloc(client->adapter, dev, nr, 0,
-				       I2C_MUX_LOCKED, max96745_select, NULL);
+	max96745->muxc = i2c_mux_alloc(client->adapter, dev, nr,
+				       0, I2C_MUX_LOCKED,
+				       max96745_select, max96745_deselect);
 	if (!max96745->muxc)
 		return -ENOMEM;
 
@@ -177,6 +211,28 @@ static void max96745_i2c_shutdown(struct i2c_client *client)
 	max96745_power_off(max96745);
 }
 
+static int __maybe_unused max96745_suspend(struct device *dev)
+{
+	struct max96745 *max96745 = dev_get_drvdata(dev);
+
+	regcache_mark_dirty(max96745->regmap);
+	regcache_cache_only(max96745->regmap, true);
+
+	return 0;
+}
+
+static int __maybe_unused max96745_resume(struct device *dev)
+{
+	struct max96745 *max96745 = dev_get_drvdata(dev);
+
+	regcache_cache_only(max96745->regmap, false);
+	regcache_sync(max96745->regmap);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(max96745_pm_ops, max96745_suspend, max96745_resume);
+
 static const struct of_device_id max96745_of_match[] = {
 	{ .compatible = "maxim,max96745", },
 	{}
@@ -187,6 +243,7 @@ static struct i2c_driver max96745_i2c_driver = {
 	.driver = {
 		.name = "max96745",
 		.of_match_table = max96745_of_match,
+		.pm = &max96745_pm_ops,
 	},
 	.probe_new = max96745_i2c_probe,
 	.remove = max96745_i2c_remove,

@@ -54,6 +54,12 @@
 #define SLEEP			BIT(3)
 #define LINK_CFG		GENMASK(1, 0)
 
+/* 0050h */
+#define STR_SEL			GENMASK(1, 0)
+
+/* 0073h */
+#define TX_SRC_ID		GENMASK(2, 0)
+
 /* 0108h */
 #define VID_LOCK		BIT(6)
 

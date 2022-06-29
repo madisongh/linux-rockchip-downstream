@@ -1334,10 +1334,6 @@ void rga_cmd_to_rga3_cmd(struct rga_req *req_rga, struct rga3_req *req)
 		break;
 	}
 
-	/* default use 2 reg, bot_blend_m1 && bot_alpha_cal_m1 */
-	if (rga_is_alpha_format(req_rga->src.format))
-		req->alpha_mode_1 = 0x0a00;
-
 	req->win0_a_global_val = req_rga->alpha_global_value;
 	req->win1_a_global_val = req_rga->alpha_global_value;
 
@@ -1350,15 +1346,20 @@ void rga_cmd_to_rga3_cmd(struct rga_req *req_rga, struct rga3_req *req)
 		}
 	}
 
-	/*
-	 * Layer binding:
-	 *     src => win1
-	 *     src1/dst => win0
-	 *     dst => wr
-	 */
 	/* simple win can not support dst offset */
 	if ((!((req_rga->alpha_rop_flag) & 1)) &&
-	    (req_rga->dst.x_offset == 0 && req_rga->dst.y_offset == 0)) {
+	    (req_rga->dst.x_offset == 0 && req_rga->dst.y_offset == 0) &&
+	    (req_rga->src.yrgb_addr != req_rga->dst.yrgb_addr)) {
+		/*
+		 * ABB mode Layer binding:
+		 *     src => win0
+		 *     dst => wr
+		 */
+
+		/* enabled by default bot_blend_m1 && bot_alpha_cal_m1 for src channel(win0) */
+		if (rga_is_alpha_format(req_rga->src.format))
+			req->alpha_mode_1 = 0x0a00;
+
 		set_win_info(&req->win0, &req_rga->src);
 
 		/* enable win0 rotate */
@@ -1374,6 +1375,17 @@ void rga_cmd_to_rga3_cmd(struct rga_req *req_rga, struct rga3_req *req)
 		req->win0.format = req_rga->src.format;
 		req->wr.format = req_rga->dst.format;
 	} else {
+		/*
+		 * ABC mode Layer binding:
+		 *     src => win1
+		 *     src1/dst => win0
+		 *     dst => wr
+		 */
+
+		/* enabled by default top_blend_m1 && top_alpha_cal_m1 for src channel(win1) */
+		if (rga_is_alpha_format(req_rga->src.format))
+			req->alpha_mode_1 = 0x0a;
+
 		if (req_rga->pat.yrgb_addr != 0) {
 			if (req_rga->src.yrgb_addr == req_rga->dst.yrgb_addr) {
 				/* Convert ABC mode to ABB mode. */
@@ -1608,11 +1620,11 @@ void rga_cmd_to_rga3_cmd(struct rga_req *req_rga, struct rga3_req *req)
 
 	/* color key: 8bit->10bit */
 	req->color_key_min = (req_rga->color_key_min & 0xff) << 22 |
-			     ((req_rga->color_key_min >> 8) & 0xff) << 12 |
-			     ((req_rga->color_key_min >> 16) & 0xff) << 2;
+			     ((req_rga->color_key_min >> 8) & 0xff) << 2 |
+			     ((req_rga->color_key_min >> 16) & 0xff) << 12;
 	req->color_key_max = (req_rga->color_key_max & 0xff) << 22 |
-			     ((req_rga->color_key_max >> 8) & 0xff) << 12 |
-			     ((req_rga->color_key_max >> 16) & 0xff) << 2;
+			     ((req_rga->color_key_max >> 8) & 0xff) << 2 |
+			     ((req_rga->color_key_max >> 16) & 0xff) << 12;
 
 	if (req_rga->mmu_info.mmu_en && (req_rga->mmu_info.mmu_flag & 1) == 1) {
 		req->mmu_info.src0_mmu_flag = 1;

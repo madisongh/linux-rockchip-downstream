@@ -331,7 +331,7 @@ static const struct v4l2_dv_timings_cap hdmirx_timings_cap = {
 
 static const struct hdmirx_output_fmt g_out_fmts[] = {
 	{
-		.fourcc = V4L2_PIX_FMT_RGB24,
+		.fourcc = V4L2_PIX_FMT_BGR24,
 		.cplanes = 1,
 		.mplanes = 1,
 		.bpp = { 24 },
@@ -558,7 +558,7 @@ static void hdmirx_get_pix_fmt(struct rk_hdmirx_dev *hdmirx_dev)
 
 	switch (hdmirx_dev->pix_fmt) {
 	case HDMIRX_RGB888:
-		hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_RGB24;
+		hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_BGR24;
 		break;
 	case HDMIRX_YUV422:
 		hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_NV16;
@@ -575,7 +575,7 @@ static void hdmirx_get_pix_fmt(struct rk_hdmirx_dev *hdmirx_dev)
 			"%s: err pix_fmt: %d, set RGB888 as default\n",
 			__func__, hdmirx_dev->pix_fmt);
 		hdmirx_dev->pix_fmt = HDMIRX_RGB888;
-		hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_RGB24;
+		hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_BGR24;
 		break;
 	}
 
@@ -932,7 +932,7 @@ static int hdmirx_set_edid(struct file *file, void *fh,
 	sip_fiq_control(RK_SIP_FIQ_CTRL_FIQ_EN, RK_IRQ_HDMIRX_HDMI, 0);
 	schedule_delayed_work_on(hdmirx_dev->bound_cpu,
 				 &hdmirx_dev->delayed_work_hotplug,
-				 msecs_to_jiffies(200));
+				 msecs_to_jiffies(500));
 
 	return 0;
 }
@@ -1426,7 +1426,7 @@ static u32 hdmirx_align_bits_per_pixel(const struct hdmirx_output_fmt *fmt,
 		case V4L2_PIX_FMT_NV24:
 		case V4L2_PIX_FMT_NV16:
 		case V4L2_PIX_FMT_NV12:
-		case V4L2_PIX_FMT_RGB24:
+		case V4L2_PIX_FMT_BGR24:
 			bpp = fmt->bpp[plane_index];
 			break;
 
@@ -2359,6 +2359,8 @@ static void hdmirx_interrupts_setup(struct rk_hdmirx_dev *hdmirx_dev, bool en)
 
 static void hdmirx_plugin(struct rk_hdmirx_dev *hdmirx_dev)
 {
+	int ret;
+
 	cpu_latency_qos_update_request(&hdmirx_dev->pm_qos, 0);
 	schedule_delayed_work_on(hdmirx_dev->bound_cpu,
 		&hdmirx_dev->delayed_work_heartbeat, msecs_to_jiffies(10));
@@ -2370,7 +2372,14 @@ static void hdmirx_plugin(struct rk_hdmirx_dev *hdmirx_dev)
 	hdmirx_hpd_ctrl(hdmirx_dev, true);
 	hdmirx_phy_config(hdmirx_dev);
 	hdmirx_audio_setup(hdmirx_dev);
-	hdmirx_wait_lock_and_get_timing(hdmirx_dev);
+	ret = hdmirx_wait_lock_and_get_timing(hdmirx_dev);
+	if (ret) {
+		hdmirx_plugout(hdmirx_dev);
+		schedule_delayed_work_on(hdmirx_dev->bound_cpu,
+					 &hdmirx_dev->delayed_work_hotplug,
+					 msecs_to_jiffies(200));
+		return;
+	}
 	hdmirx_dma_config(hdmirx_dev);
 	hdmirx_interrupts_setup(hdmirx_dev, true);
 	hdmirx_audio_handle_plugged_change(hdmirx_dev, 1);
@@ -2749,6 +2758,7 @@ static void hdmirx_delayed_work_res_change(struct work_struct *work)
 			struct rk_hdmirx_dev, delayed_work_res_change);
 	struct v4l2_device *v4l2_dev = &hdmirx_dev->v4l2_dev;
 	bool plugin;
+	int ret;
 
 	mutex_lock(&hdmirx_dev->work_lock);
 	plugin = tx_5v_power_present(hdmirx_dev);
@@ -2761,10 +2771,17 @@ static void hdmirx_delayed_work_res_change(struct work_struct *work)
 		hdmirx_hpd_ctrl(hdmirx_dev, true);
 		hdmirx_phy_config(hdmirx_dev);
 		hdmirx_audio_setup(hdmirx_dev);
-		hdmirx_wait_lock_and_get_timing(hdmirx_dev);
-		hdmirx_dma_config(hdmirx_dev);
-		hdmirx_interrupts_setup(hdmirx_dev, true);
-		hdmirx_audio_handle_plugged_change(hdmirx_dev, 1);
+		ret = hdmirx_wait_lock_and_get_timing(hdmirx_dev);
+		if (ret) {
+			hdmirx_plugout(hdmirx_dev);
+			schedule_delayed_work_on(hdmirx_dev->bound_cpu,
+						 &hdmirx_dev->delayed_work_hotplug,
+						 msecs_to_jiffies(200));
+		} else {
+			hdmirx_dma_config(hdmirx_dev);
+			hdmirx_interrupts_setup(hdmirx_dev, true);
+			hdmirx_audio_handle_plugged_change(hdmirx_dev, 1);
+		}
 	}
 	mutex_unlock(&hdmirx_dev->work_lock);
 }
@@ -3094,7 +3111,7 @@ static ssize_t edid_store(struct device *dev,
 		sip_fiq_control(RK_SIP_FIQ_CTRL_FIQ_EN, RK_IRQ_HDMIRX_HDMI, 0);
 		schedule_delayed_work_on(hdmirx_dev->bound_cpu,
 					 &hdmirx_dev->delayed_work_hotplug,
-					 msecs_to_jiffies(200));
+					 msecs_to_jiffies(500));
 	}
 
 	return count;
@@ -3616,7 +3633,7 @@ static int hdmirx_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_work_queues;
 
-	hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_RGB24;
+	hdmirx_dev->cur_fmt_fourcc = V4L2_PIX_FMT_BGR24;
 	hdmirx_dev->timings = timings_def;
 
 	irq = platform_get_irq_byname(pdev, "hdmi");
@@ -3630,8 +3647,8 @@ static int hdmirx_probe(struct platform_device *pdev)
 	cpumask_set_cpu(hdmirx_dev->bound_cpu, &cpumask);
 	irq_set_affinity_hint(irq, &cpumask);
 	hdmirx_dev->hdmi_irq = irq;
-	ret = devm_request_threaded_irq(dev, irq, hdmirx_hdmi_irq_handler, NULL,
-			IRQF_ONESHOT, RK_HDMIRX_DRVNAME"-hdmi", hdmirx_dev);
+	ret = devm_request_irq(dev, irq, hdmirx_hdmi_irq_handler, 0,
+			       RK_HDMIRX_DRVNAME"-hdmi", hdmirx_dev);
 	if (ret) {
 		dev_err(dev, "request hdmi irq thread failed! ret:%d\n", ret);
 		goto err_work_queues;
@@ -3700,8 +3717,10 @@ static int hdmirx_probe(struct platform_device *pdev)
 							 hdmirx_dev,
 							 hdmirx_groups,
 							 "hdmirx");
-	if (IS_ERR(hdmirx_dev->classdev))
+	if (IS_ERR(hdmirx_dev->classdev)) {
+		ret = PTR_ERR(hdmirx_dev->classdev);
 		goto err_unreg_video_dev;
+	}
 	ret = devm_add_action_or_reset(dev, hdmirx_unregister_class_device, hdmirx_dev);
 	if (ret)
 		goto err_unreg_video_dev;
@@ -3717,9 +3736,9 @@ static int hdmirx_probe(struct platform_device *pdev)
 	cpumask_set_cpu(hdmirx_dev->bound_cpu, &cpumask);
 	irq_set_affinity_hint(irq, &cpumask);
 	hdmirx_dev->det_irq = irq;
-	ret = devm_request_threaded_irq(dev, irq, hdmirx_5v_det_irq_handler,
-			NULL, IRQF_ONESHOT | IRQF_TRIGGER_FALLING |
-			IRQF_TRIGGER_RISING, RK_HDMIRX_DRVNAME"-5v", hdmirx_dev);
+	ret = devm_request_irq(dev, irq, hdmirx_5v_det_irq_handler,
+			       IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
+			       RK_HDMIRX_DRVNAME"-5v", hdmirx_dev);
 	if (ret) {
 		dev_err(dev, "request hdmirx-det gpio irq thread failed! ret:%d\n", ret);
 		goto err_unreg_video_dev;

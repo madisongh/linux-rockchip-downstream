@@ -28,8 +28,6 @@
 #include "page_pool.h"
 #include "deferred-free-helper.h"
 
-#define CONFIG_SYSTEM_HEAP_FORCE_DMA_SYNC
-
 static struct dma_heap *sys_heap;
 static struct dma_heap *sys_dma32_heap;
 static struct dma_heap *sys_uncached_heap;
@@ -306,18 +304,6 @@ system_heap_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 		return 0;
 
 	mutex_lock(&buffer->lock);
-	if (IS_ENABLED(CONFIG_SYSTEM_HEAP_FORCE_DMA_SYNC)) {
-		struct dma_heap *heap = buffer->heap;
-		struct sg_table *table = &buffer->sg_table;
-
-		ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap),
-						 table->sgl,
-						 table->nents,
-						 offset, len,
-						 direction, true);
-		goto unlock;
-	}
-
 	if (buffer->vmap_cnt)
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
@@ -333,7 +319,16 @@ system_heap_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 						 offset, len,
 						 direction, true);
 	}
+	if (list_empty(&buffer->attachments)) {
+		struct dma_heap *heap = buffer->heap;
+		struct sg_table *table = &buffer->sg_table;
 
+		ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap),
+						 table->sgl,
+						 table->nents,
+						 offset, len,
+						 direction, true);
+	}
 unlock:
 	mutex_unlock(&buffer->lock);
 
@@ -351,18 +346,6 @@ system_heap_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 	int ret = 0;
 
 	mutex_lock(&buffer->lock);
-	if (IS_ENABLED(CONFIG_SYSTEM_HEAP_FORCE_DMA_SYNC)) {
-		struct dma_heap *heap = buffer->heap;
-		struct sg_table *table = &buffer->sg_table;
-
-		ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap),
-						 table->sgl,
-						 table->nents,
-						 offset, len,
-						 direction, false);
-		goto unlock;
-	}
-
 	if (buffer->vmap_cnt)
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
@@ -375,6 +358,16 @@ system_heap_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 
 		ret = system_heap_sgl_sync_range(a->dev, a->table->sgl,
 						 a->table->nents,
+						 offset, len,
+						 direction, false);
+	}
+	if (list_empty(&buffer->attachments)) {
+		struct dma_heap *heap = buffer->heap;
+		struct sg_table *table = &buffer->sg_table;
+
+		ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap),
+						 table->sgl,
+						 table->nents,
 						 offset, len,
 						 direction, false);
 	}

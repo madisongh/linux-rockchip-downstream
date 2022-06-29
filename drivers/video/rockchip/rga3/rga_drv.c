@@ -18,6 +18,7 @@
 
 #include "rga2_mmu_info.h"
 #include "rga_debugger.h"
+#include "rga_common.h"
 
 struct rga_drvdata_t *rga_drvdata;
 
@@ -499,6 +500,7 @@ static struct rga_session *rga_session_init(void)
 	mutex_unlock(&session_manager->lock);
 
 	session->tgid = current->tgid;
+	session->pname = kstrdup_quotable_cmdline(current, GFP_KERNEL);
 
 	return session;
 }
@@ -531,6 +533,8 @@ static int rga_session_deinit(struct rga_session *session)
 	rga_mm_session_release_buffer(session);
 
 	rga_session_free_remove_idr(session);
+
+	kfree(session->pname);
 	kfree(session);
 
 	return 0;
@@ -725,11 +729,18 @@ static long rga_ioctl_request_submit(unsigned long arg, bool run_enbale)
 			return -EFAULT;
 		}
 
-		if (request->sync_mode == RGA_BLIT_SYNC) {
-			mutex_lock(&request_manager->lock);
-			rga_request_put(request);
-			mutex_unlock(&request_manager->lock);
+		if (request->sync_mode == RGA_BLIT_ASYNC) {
+			user_request.release_fence_fd = request->release_fence_fd;
+			if (copy_to_user((struct rga_req *)arg,
+					 &user_request, sizeof(user_request))) {
+				pr_err("copy_to_user failed\n");
+				return -EFAULT;
+			}
 		}
+
+		mutex_lock(&request_manager->lock);
+		rga_request_put(request);
+		mutex_unlock(&request_manager->lock);
 	}
 
 	return 0;
@@ -809,12 +820,14 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 		memset(&request, 0x0, sizeof(request));
 
 		request.sync_mode = cmd;
+		request.acquire_fence_fd = req_rga.in_fence_fd;
 		request.use_batch_mode = false;
+		request.is_running = false;
 		request.session = session;
 		request.task_list = &req_rga;
 		request.task_count = 1;
 
-		ret = rga_request_commit(&request);
+		ret = rga_request_submit(&request);
 		if (ret < 0) {
 			if (ret == -ERESTARTSYS) {
 				if (DEBUGGER_EN(MSG))
@@ -826,6 +839,7 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 			break;
 		}
 
+		req_rga.out_fence_fd = request.release_fence_fd;
 		if (copy_to_user((struct rga_req *)arg,
 				&req_rga, sizeof(struct rga_req))) {
 			pr_err("copy_to_user failed\n");

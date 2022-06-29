@@ -153,9 +153,6 @@
 /* KHZ */
 #define VOP2_MAX_DCLK_RATE		600000
 
-#define VOP2_COLOR_KEY_NONE		(0 << 31)
-#define VOP2_COLOR_KEY_MASK		(1 << 31)
-
 enum vop2_data_format {
 	VOP2_FMT_ARGB8888 = 0,
 	VOP2_FMT_RGB888,
@@ -3466,6 +3463,7 @@ static int vop2_extend_clk_init(struct vop2 *vop2)
 {
 	const char * const extend_clk_name[] = {
 		"hdmi0_phy_pll", "hdmi1_phy_pll"};
+	struct drm_device *drm_dev = vop2->drm_dev;
 	struct clk *clk;
 	struct vop2_extend_pll *extend_pll;
 	int i;
@@ -3476,14 +3474,14 @@ static int vop2_extend_clk_init(struct vop2 *vop2)
 		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(extend_clk_name); i++) {
-		clk = devm_clk_get(vop2->dev, extend_clk_name[i]);
+		clk = devm_clk_get(drm_dev->dev, extend_clk_name[i]);
 		if (IS_ERR(clk)) {
-			dev_warn(vop2->dev, "failed to get %s: %ld\n",
+			dev_warn(drm_dev->dev, "failed to get %s: %ld\n",
 				 extend_clk_name[i], PTR_ERR(clk));
 			continue;
 		}
 
-		extend_pll = devm_kzalloc(vop2->dev, sizeof(*extend_pll), GFP_KERNEL);
+		extend_pll = devm_kzalloc(drm_dev->dev, sizeof(*extend_pll), GFP_KERNEL);
 		if (!extend_pll)
 			return -ENOMEM;
 
@@ -3540,6 +3538,10 @@ static int vop2_extend_clk_switch_pll(struct vop2 *vop2, struct vop2_extend_pll 
 	return 0;
 }
 
+static inline int vop2_extend_clk_get_vp_id(struct vop2_extend_pll *ext_pll)
+{
+	return ffs(ext_pll->vp_mask) - 1;
+}
 
 /*
  * Here are 2 hdmi phy pll can use for video port dclk. The strategies of how to use hdmi phy pll
@@ -3600,13 +3602,13 @@ static int vop2_clk_set_parent_extend(struct vop2_video_port *vp,
 		    (vcstate->output_if & VOP_OUTPUT_IF_HDMI1)) {
 			if (hdmi0_phy_pll->vp_mask) {
 				DRM_ERROR("hdmi0 phy pll is used by vp%d\n",
-					  hdmi0_phy_pll->vp_mask);
+					  vop2_extend_clk_get_vp_id(hdmi0_phy_pll));
 				return -EBUSY;
 			}
 
 			if (hdmi1_phy_pll->vp_mask) {
 				DRM_ERROR("hdmi1 phy pll is used by vp%d\n",
-					  hdmi1_phy_pll->vp_mask);
+					  vop2_extend_clk_get_vp_id(hdmi1_phy_pll));
 				return -EBUSY;
 			}
 
@@ -3623,8 +3625,8 @@ static int vop2_clk_set_parent_extend(struct vop2_video_port *vp,
 				if (hdmi1_phy_pll) {
 					if (hdmi1_phy_pll->vp_mask) {
 						DRM_ERROR("hdmi0: phy pll is used by vp%d:vp%d\n",
-							  hdmi0_phy_pll->vp_mask,
-							  hdmi1_phy_pll->vp_mask);
+							  vop2_extend_clk_get_vp_id(hdmi0_phy_pll),
+							  vop2_extend_clk_get_vp_id(hdmi1_phy_pll));
 						return -EBUSY;
 					}
 
@@ -3632,7 +3634,7 @@ static int vop2_clk_set_parent_extend(struct vop2_video_port *vp,
 								   hdmi1_phy_pll);
 				} else {
 					DRM_ERROR("hdmi0: phy pll is used by vp%d\n",
-						  hdmi0_phy_pll->vp_mask);
+						  vop2_extend_clk_get_vp_id(hdmi0_phy_pll));
 					return -EBUSY;
 				}
 			}
@@ -3649,8 +3651,8 @@ static int vop2_clk_set_parent_extend(struct vop2_video_port *vp,
 				if (hdmi0_phy_pll) {
 					if (hdmi0_phy_pll->vp_mask) {
 						DRM_ERROR("hdmi1: phy pll is used by vp%d:vp%d\n",
-							  hdmi0_phy_pll->vp_mask,
-							  hdmi1_phy_pll->vp_mask);
+							  vop2_extend_clk_get_vp_id(hdmi0_phy_pll),
+							  vop2_extend_clk_get_vp_id(hdmi1_phy_pll));
 						return -EBUSY;
 					}
 
@@ -3658,7 +3660,7 @@ static int vop2_clk_set_parent_extend(struct vop2_video_port *vp,
 								   hdmi0_phy_pll);
 				} else {
 					DRM_ERROR("hdmi1: phy pll is used by vp%d\n",
-						  hdmi1_phy_pll->vp_mask);
+						  vop2_extend_clk_get_vp_id(hdmi1_phy_pll));
 					return -EBUSY;
 				}
 			}
@@ -4179,7 +4181,7 @@ static void vop2_plane_setup_color_key(struct drm_plane *plane)
 	uint32_t g = 0;
 	uint32_t b = 0;
 
-	if (!(vpstate->color_key & VOP2_COLOR_KEY_MASK) || fb->format->is_yuv) {
+	if (!(vpstate->color_key & VOP_COLOR_KEY_MASK) || fb->format->is_yuv) {
 		VOP_WIN_SET(vop2, win, color_key_en, 0);
 		return;
 	}
@@ -4328,11 +4330,10 @@ static void vop2_win_atomic_update(struct vop2_win *win, struct drm_rect *src, s
 	 */
 	if (win->splice_mode_right) {
 		splice_pixel_offset = (src->x1 - left_src->x1) >> 16;
-		splice_yrgb_offset = splice_pixel_offset * fb->format->cpp[0];
-
+		splice_yrgb_offset = drm_format_info_min_pitch(fb->format, 0, splice_pixel_offset);
 		if (fb->format->is_yuv && fb->format->num_planes > 1) {
 			hsub = fb->format->hsub;
-			splice_uv_offset = splice_pixel_offset * fb->format->cpp[1] / hsub;
+			splice_uv_offset = drm_format_info_min_pitch(fb->format, 1, splice_pixel_offset / hsub);
 		}
 	}
 
@@ -5406,14 +5407,14 @@ vop2_crtc_mode_valid(struct drm_crtc *crtc, const struct drm_display_mode *mode)
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		request_clock *= 2;
 
-	if (request_clock <= VOP2_MAX_DCLK_RATE) {
-		if (vop2_extend_clk_find_by_name(vop2, "hdmi0_phy_pll") ||
-		    vop2_extend_clk_find_by_name(vop2, "hdmi1_phy_pll"))
-			clock = request_clock;
-		else
-			clock = clk_round_rate(vp->dclk, request_clock * 1000) / 1000;
-	} else {
+	if ((request_clock <= VOP2_MAX_DCLK_RATE) &&
+	    (vop2_extend_clk_find_by_name(vop2, "hdmi0_phy_pll") ||
+	     vop2_extend_clk_find_by_name(vop2, "hdmi1_phy_pll"))) {
 		clock = request_clock;
+	} else {
+		if (request_clock > VOP2_MAX_DCLK_RATE)
+			request_clock = request_clock >> 2;
+		clock = clk_round_rate(vp->dclk, request_clock * 1000) / 1000;
 	}
 
 	/*
@@ -5954,8 +5955,10 @@ static int vop2_calc_if_clk(struct drm_crtc *crtc, const struct vop2_connector_i
 			if (vcstate->output_mode == ROCKCHIP_OUT_MODE_YUV420 ||
 			    (vcstate->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE))
 				v_pixclk = v_pixclk >> 1;
-			clk_set_rate(dclk->hw.clk, v_pixclk);
+		} else {
+			v_pixclk = v_pixclk >> 2;
 		}
+		clk_set_rate(dclk->hw.clk, v_pixclk);
 	}
 
 	if (vcstate->dsc_enable) {

@@ -291,20 +291,6 @@ static inline struct iommu_domain *rga_iommu_get_dma_domain(struct device *dev)
 	return iommu_get_domain_for_dev(dev);
 }
 
-static inline void rga_dma_flush_cache_by_sgt(struct sg_table *sgt)
-{
-	struct scatterlist *sg;
-	int i;
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
-	for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
-		arch_dma_prep_coherent(sg_page(sg), sg->length);
-#else
-	for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
-		__dma_flush_area(sg_page(sg), sg->length);
-#endif
-}
-
 void rga_iommu_unmap_virt_addr(struct rga_dma_buffer *virt_dma_buf)
 {
 	if (virt_dma_buf == NULL)
@@ -352,9 +338,6 @@ int rga_iommu_map_virt_addr(struct rga_memory_parm *memory_parm,
 		pr_err("rga_iommu_dma_alloc_iova failed");
 		return -ENOMEM;
 	}
-
-	if (!(ioprot & IOMMU_CACHE))
-		rga_dma_flush_cache_by_sgt(sgt);
 
 	map_size = rga_iommu_map_sg(domain, iova, sgt->sgl, sgt->orig_nents, ioprot);
 	if (map_size < size) {
@@ -431,7 +414,8 @@ int rga_dma_map_buf(struct dma_buf *dma_buf, struct rga_dma_buffer *rga_dma_buff
 {
 	struct dma_buf_attachment *attach = NULL;
 	struct sg_table *sgt = NULL;
-	int ret = 0;
+	struct scatterlist *sg = NULL;
+	int i, ret = 0;
 
 	if (dma_buf != NULL) {
 		get_dma_buf(dma_buf);
@@ -458,8 +442,10 @@ int rga_dma_map_buf(struct dma_buf *dma_buf, struct rga_dma_buffer *rga_dma_buff
 	rga_dma_buffer->attach = attach;
 	rga_dma_buffer->sgt = sgt;
 	rga_dma_buffer->iova = sg_dma_address(sgt->sgl);
-	rga_dma_buffer->size = sg_dma_len(sgt->sgl);
 	rga_dma_buffer->dir = dir;
+	rga_dma_buffer->size = 0;
+	for_each_sgtable_sg(sgt, sg, i)
+		rga_dma_buffer->size += sg_dma_len(sg);
 
 	return ret;
 
@@ -479,7 +465,8 @@ int rga_dma_map_fd(int fd, struct rga_dma_buffer *rga_dma_buffer,
 	struct dma_buf *dma_buf = NULL;
 	struct dma_buf_attachment *attach = NULL;
 	struct sg_table *sgt = NULL;
-	int ret = 0;
+	struct scatterlist *sg = NULL;
+	int i, ret = 0;
 
 	dma_buf = dma_buf_get(fd);
 	if (IS_ERR(dma_buf)) {
@@ -506,8 +493,10 @@ int rga_dma_map_fd(int fd, struct rga_dma_buffer *rga_dma_buffer,
 	rga_dma_buffer->attach = attach;
 	rga_dma_buffer->sgt = sgt;
 	rga_dma_buffer->iova = sg_dma_address(sgt->sgl);
-	rga_dma_buffer->size = sg_dma_len(sgt->sgl);
 	rga_dma_buffer->dir = dir;
+	rga_dma_buffer->size = 0;
+	for_each_sgtable_sg(sgt, sg, i)
+		rga_dma_buffer->size += sg_dma_len(sg);
 
 	return ret;
 

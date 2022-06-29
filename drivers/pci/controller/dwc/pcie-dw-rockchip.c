@@ -124,7 +124,7 @@ enum rk_pcie_device_mode {
 #define PCIE_CLIENT_DBG_FIFO_TRN_HIT_D1 0x32c
 #define PCIE_CLIENT_DBG_FIFO_STATUS	0x350
 #define PCIE_CLIENT_DBG_TRANSITION_DATA	0xffff0000
-#define PCIE_CLIENT_DBF_EN		0xffff0003
+#define PCIE_CLIENT_DBF_EN		0xffff0007
 
 #define PCIE_PHY_LINKUP			BIT(0)
 #define PCIE_DATA_LINKUP		BIT(1)
@@ -174,11 +174,14 @@ struct rk_pcie {
 	bool				is_rk1808;
 	bool				is_signal_test;
 	bool				bifurcation;
+	bool				supports_clkreq;
 	struct regulator		*vpcie3v3;
 	struct irq_domain		*irq_domain;
 	int				legacy_parent_irq;
 	raw_spinlock_t			intx_lock;
 	u16				aspm;
+	u32				l1ss_ctl1;
+	struct dentry			*debugfs;
 };
 
 struct rk_pcie_of_data {
@@ -620,6 +623,28 @@ static int rk_pcie_ep_atu_init(struct rk_pcie *rk_pcie)
 	return 0;
 }
 
+#if defined(CONFIG_PCIEASPM)
+static void disable_aspm_l1ss(struct rk_pcie *rk_pcie)
+{
+	u32 val, cfg_link_cap_l1sub;
+
+	val = dw_pcie_find_ext_capability(rk_pcie->pci, PCI_EXT_CAP_ID_L1SS);
+	if (!val) {
+		dev_err(rk_pcie->pci->dev, "can't find l1ss cap\n");
+
+		return;
+	}
+
+	cfg_link_cap_l1sub = val + PCI_L1SS_CAP;
+
+	val = dw_pcie_readl_dbi(rk_pcie->pci, cfg_link_cap_l1sub);
+	val &= ~(PCI_L1SS_CAP_ASPM_L1_1 | PCI_L1SS_CAP_ASPM_L1_2 | PCI_L1SS_CAP_L1_PM_SS);
+	dw_pcie_writel_dbi(rk_pcie->pci, cfg_link_cap_l1sub, val);
+}
+#else
+static inline void disable_aspm_l1ss(struct rk_pcie *rk_pcie) { return; }
+#endif
+
 static inline void rk_pcie_set_mode(struct rk_pcie *rk_pcie)
 {
 	switch (rk_pcie->mode) {
@@ -627,6 +652,14 @@ static inline void rk_pcie_set_mode(struct rk_pcie *rk_pcie)
 		rk_pcie_writel_apb(rk_pcie, 0x0, 0xf00000);
 		break;
 	case RK_PCIE_RC_TYPE:
+		if (rk_pcie->supports_clkreq) {
+			/* Application is ready to have reference clock removed */
+			rk_pcie_writel_apb(rk_pcie, PCIE_CLIENT_POWER, 0x00010001);
+		} else {
+			/* Pull down CLKREQ# to assert the connecting CLOCK_GEN OE */
+			rk_pcie_writel_apb(rk_pcie, PCIE_CLIENT_POWER, 0x30011000);
+			disable_aspm_l1ss(rk_pcie);
+		}
 		rk_pcie_writel_apb(rk_pcie, 0x0, 0xf00040);
 		/*
 		 * Disable order rule for CPL can't pass halted P queue.
@@ -676,7 +709,8 @@ static int rk_pcie_link_up(struct dw_pcie *pci)
 
 static void rk_pcie_enable_debug(struct rk_pcie *rk_pcie)
 {
-#if RK_PCIE_DBG
+	if (!IS_ENABLED(CONFIG_DEBUG_FS))
+		return;
 	if (rk_pcie->is_rk1808 == true)
 		return;
 
@@ -690,7 +724,6 @@ static void rk_pcie_enable_debug(struct rk_pcie *rk_pcie)
 			   PCIE_CLIENT_DBG_TRANSITION_DATA);
 	rk_pcie_writel_apb(rk_pcie, PCIE_CLIENT_DBG_FIFO_MODE_CON,
 			   PCIE_CLIENT_DBF_EN);
-#endif
 }
 
 static void rk_pcie_debug_dump(struct rk_pcie *rk_pcie)
@@ -1733,6 +1766,145 @@ static int rk_pcie_disable_power(struct rk_pcie *rk_pcie)
 	return ret;
 }
 
+#define RAS_DES_EVENT(ss, v) \
+do { \
+	dw_pcie_writel_dbi(pcie->pci, cap_base + 8, v); \
+	seq_printf(s, ss "0x%x\n", dw_pcie_readl_dbi(pcie->pci, cap_base + 0xc)); \
+} while (0)
+
+static int rockchip_pcie_rasdes_show(struct seq_file *s, void *unused)
+{
+	struct rk_pcie *pcie = s->private;
+	int cap_base;
+
+	cap_base = dw_pcie_find_ext_capability(pcie->pci, PCI_EXT_CAP_ID_VNDR);
+	if (!cap_base) {
+		dev_err(pcie->pci->dev, "Not able to find RASDES CAP!\n");
+		return 0;
+	}
+
+	RAS_DES_EVENT("EBUF Overflow: ", 0);
+	RAS_DES_EVENT("EBUF Under-run: ", 0x0010000);
+	RAS_DES_EVENT("Decode Error: ", 0x0020000);
+	RAS_DES_EVENT("Running Disparity Error: ", 0x0030000);
+	RAS_DES_EVENT("SKP OS Parity Error: ", 0x0040000);
+	RAS_DES_EVENT("SYNC Header Error: ", 0x0050000);
+	RAS_DES_EVENT("CTL SKP OS Parity Error: ", 0x0060000);
+	RAS_DES_EVENT("Detect EI Infer: ", 0x1050000);
+	RAS_DES_EVENT("Receiver Error: ", 0x1060000);
+	RAS_DES_EVENT("Rx Recovery Request: ", 0x1070000);
+	RAS_DES_EVENT("N_FTS Timeout: ", 0x1080000);
+	RAS_DES_EVENT("Framing Error: ", 0x1090000);
+	RAS_DES_EVENT("Deskew Error: ", 0x10a0000);
+	RAS_DES_EVENT("BAD TLP: ", 0x2000000);
+	RAS_DES_EVENT("LCRC Error: ", 0x2010000);
+	RAS_DES_EVENT("BAD DLLP: ", 0x2020000);
+	RAS_DES_EVENT("Replay Number Rollover: ", 0x2030000);
+	RAS_DES_EVENT("Replay Timeout: ", 0x2040000);
+	RAS_DES_EVENT("Rx Nak DLLP: ", 0x2050000);
+	RAS_DES_EVENT("Tx Nak DLLP: ", 0x2060000);
+	RAS_DES_EVENT("Retry TLP: ", 0x2070000);
+	RAS_DES_EVENT("FC Timeout: ", 0x3000000);
+	RAS_DES_EVENT("Poisoned TLP: ", 0x3010000);
+	RAS_DES_EVENT("ECRC Error: ", 0x3020000);
+	RAS_DES_EVENT("Unsupported Request: ", 0x3030000);
+	RAS_DES_EVENT("Completer Abort: ", 0x3040000);
+	RAS_DES_EVENT("Completion Timeout: ", 0x3050000);
+
+	return 0;
+}
+static int rockchip_pcie_rasdes_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, rockchip_pcie_rasdes_show,
+			   inode->i_private);
+}
+
+static ssize_t rockchip_pcie_rasdes_write(struct file *file,
+				       const char __user *ubuf,
+				       size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct rk_pcie *pcie = s->private;
+	char buf[32];
+	int cap_base;
+
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	cap_base = dw_pcie_find_ext_capability(pcie->pci, PCI_EXT_CAP_ID_VNDR);
+	if (!cap_base) {
+		dev_err(pcie->pci->dev, "Not able to find RASDES CAP!\n");
+		return 0;
+	}
+
+	if (!strncmp(buf, "enable", 6))	{
+		dev_info(pcie->pci->dev, "RAS DES Event: Enable ALL!\n");
+		dw_pcie_writel_dbi(pcie->pci, cap_base + 8, 0x1c);
+		dw_pcie_writel_dbi(pcie->pci, cap_base + 8, 0x3);
+	} else if (!strncmp(buf, "disable", 7)) {
+		dev_info(pcie->pci->dev, "RAS DES Event: disable ALL!\n");
+		dw_pcie_writel_dbi(pcie->pci, cap_base + 8, 0x14);
+	} else if (!strncmp(buf, "clear", 5)) {
+		dev_info(pcie->pci->dev, "RAS DES Event: Clear ALL!\n");
+		dw_pcie_writel_dbi(pcie->pci, cap_base + 8, 0x3);
+	} else {
+		dev_info(pcie->pci->dev, "Not support command!\n");
+	}
+
+	return count;
+}
+
+static const struct file_operations rockchip_pcie_rasdes_ops = {
+	.owner = THIS_MODULE,
+	.open = rockchip_pcie_rasdes_open,
+	.read = seq_read,
+	.write = rockchip_pcie_rasdes_write,
+};
+
+static int rockchip_pcie_fifo_show(struct seq_file *s, void *data)
+{
+	struct rk_pcie *pcie = (struct rk_pcie *)dev_get_drvdata(s->private);
+	u32 loop;
+
+	seq_printf(s, "ltssm = 0x%x\n",
+		   rk_pcie_readl_apb(pcie, PCIE_CLIENT_LTSSM_STATUS));
+	for (loop = 0; loop < 64; loop++)
+		seq_printf(s, "fifo_status = 0x%x\n",
+			   rk_pcie_readl_apb(pcie, PCIE_CLIENT_DBG_FIFO_STATUS));
+
+	return 0;
+}
+
+static void rockchip_pcie_debugfs_exit(struct rk_pcie *pcie)
+{
+	debugfs_remove_recursive(pcie->debugfs);
+	pcie->debugfs = NULL;
+}
+
+static int rockchip_pcie_debugfs_init(struct rk_pcie *pcie)
+{
+	struct dentry *file;
+
+	pcie->debugfs = debugfs_create_dir(dev_name(pcie->pci->dev), NULL);
+	if (!pcie->debugfs)
+		return -ENOMEM;
+
+	debugfs_create_devm_seqfile(pcie->pci->dev, "dumpfifo",
+				    pcie->debugfs,
+				    rockchip_pcie_fifo_show);
+	file = debugfs_create_file("err_event", 0644, pcie->debugfs,
+				   pcie, &rockchip_pcie_rasdes_ops);
+	if (!file)
+		goto remove;
+
+	return 0;
+
+remove:
+	rockchip_pcie_debugfs_exit(pcie);
+
+	return -ENOMEM;
+}
+
 static int rk_pcie_really_probe(void *p)
 {
 	struct platform_device *pdev = p;
@@ -1795,6 +1967,8 @@ static int rk_pcie_really_probe(void *p)
 			goto release_driver;
 		}
 	}
+
+	rk_pcie->supports_clkreq = device_property_read_bool(dev, "supports-clkreq");
 
 retry_regulator:
 	/* DON'T MOVE ME: must be enable before phy init */
@@ -1931,6 +2105,22 @@ retry_regulator:
 	/* Enable async system PM for multiports SoC */
 	device_enable_async_suspend(dev);
 
+	if (IS_ENABLED(CONFIG_DEBUG_FS)) {
+		ret = rockchip_pcie_debugfs_init(rk_pcie);
+		if (ret < 0)
+			dev_err(dev, "failed to setup debugfs: %d\n", ret);
+
+		/* Enable RASDES Error event by default */
+		val = dw_pcie_find_ext_capability(rk_pcie->pci, PCI_EXT_CAP_ID_VNDR);
+		if (!val) {
+			dev_err(dev, "Not able to find RASDES CAP!\n");
+			return 0;
+		}
+
+		dw_pcie_writel_dbi(rk_pcie->pci, val + 8, 0x1c);
+		dw_pcie_writel_dbi(rk_pcie->pci, val + 8, 0x3);
+	}
+
 	return 0;
 
 remove_irq_domain:
@@ -1971,13 +2161,14 @@ static void rk_pcie_downstream_dev_to_d0(struct rk_pcie *rk_pcie, bool enable)
 {
 	struct pcie_port *pp = &rk_pcie->pci->pp;
 	struct pci_bus *child, *root_bus = NULL;
-	struct pci_dev *pdev;
-	u32 reg, val;
+	struct pci_dev *pdev, *bridge;
+	u32 val;
 
 	list_for_each_entry(child, &pp->bridge->bus->children, node) {
 		/* Bring downstream devices to D3 if they are not already in */
 		if (child->parent == pp->bridge->bus) {
 			root_bus = child;
+			bridge = root_bus->self;
 			break;
 		}
 	}
@@ -1988,15 +2179,23 @@ static void rk_pcie_downstream_dev_to_d0(struct rk_pcie *rk_pcie, bool enable)
 	}
 
 	/* Save and restore root bus ASPM */
-	reg = dw_pcie_find_capability(rk_pcie->pci, PCI_CAP_ID_EXP);
-	val = dw_pcie_readl_dbi(rk_pcie->pci, reg + PCI_EXP_LNKCTL);
 	if (enable) {
+		if (rk_pcie->l1ss_ctl1)
+			dw_pcie_writel_dbi(rk_pcie->pci, bridge->l1ss + PCI_L1SS_CTL1, rk_pcie->l1ss_ctl1);
+
 		/* rk_pcie->aspm woule be saved in advance when enable is false */
-		dw_pcie_writel_dbi(rk_pcie->pci, reg + PCI_EXP_LNKCTL, rk_pcie->aspm);
+		dw_pcie_writel_dbi(rk_pcie->pci, bridge->pcie_cap + PCI_EXP_LNKCTL, rk_pcie->aspm);
 	} else {
+		val = dw_pcie_readl_dbi(rk_pcie->pci, bridge->l1ss + PCI_L1SS_CTL1);
+		if (val & PCI_L1SS_CTL1_L1SS_MASK)
+			rk_pcie->l1ss_ctl1 = val;
+		else
+			rk_pcie->l1ss_ctl1 = 0;
+
+		val = dw_pcie_readl_dbi(rk_pcie->pci, bridge->pcie_cap + PCI_EXP_LNKCTL);
 		rk_pcie->aspm = val & PCI_EXP_LNKCTL_ASPMC;
 		val &= ~(PCI_EXP_LNKCAP_ASPM_L1 | PCI_EXP_LNKCAP_ASPM_L0S);
-		dw_pcie_writel_dbi(rk_pcie->pci, reg + PCI_EXP_LNKCTL, val);
+		dw_pcie_writel_dbi(rk_pcie->pci, bridge->pcie_cap + PCI_EXP_LNKCTL, val);
 	}
 
 	list_for_each_entry(pdev, &root_bus->devices, bus_list) {
@@ -2005,11 +2204,19 @@ static void rk_pcie_downstream_dev_to_d0(struct rk_pcie *rk_pcie, bool enable)
 				dev_err(rk_pcie->pci->dev,
 					"Failed to transition %s to D3hot state\n",
 					dev_name(&pdev->dev));
-			if (enable)
+			if (enable) {
+				if (rk_pcie->l1ss_ctl1) {
+					pci_read_config_dword(pdev, pdev->l1ss + PCI_L1SS_CTL1, &val);
+					val &= ~PCI_L1SS_CTL1_L1SS_MASK;
+					val |= (rk_pcie->l1ss_ctl1 & PCI_L1SS_CTL1_L1SS_MASK);
+					pci_write_config_dword(pdev, pdev->l1ss + PCI_L1SS_CTL1, val);
+				}
+
 				pcie_capability_clear_and_set_word(pdev, PCI_EXP_LNKCTL,
 								   PCI_EXP_LNKCTL_ASPMC, rk_pcie->aspm);
-			else
+			} else {
 				pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1);
+			}
 		}
 	}
 }

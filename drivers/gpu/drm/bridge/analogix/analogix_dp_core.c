@@ -1311,13 +1311,23 @@ static int analogix_dp_bridge_attach(struct drm_bridge *bridge,
 	struct drm_connector *connector = NULL;
 	int ret = 0;
 
-	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
-		return 0;
-
 	if (!bridge->encoder) {
 		DRM_ERROR("Parent encoder object not found");
 		return -ENODEV;
 	}
+
+	if (dp->plat_data->bridge) {
+		ret = drm_bridge_attach(bridge->encoder, dp->plat_data->bridge, bridge,
+					dp->plat_data->skip_connector ?
+					0 : DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+		if (ret) {
+			DRM_ERROR("Failed to attach external bridge: %d\n", ret);
+			return ret;
+		}
+	}
+
+	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
+		return 0;
 
 	if (!dp->plat_data->skip_connector) {
 		int connector_type = DRM_MODE_CONNECTOR_eDP;
@@ -2081,6 +2091,7 @@ int analogix_dp_bind(struct analogix_dp_device *dp, struct drm_device *drm_dev)
 err_disable_pm_runtime:
 	pm_runtime_put(dp->dev);
 	pm_runtime_disable(dp->dev);
+	drm_dp_aux_unregister(&dp->aux);
 
 	return ret;
 }

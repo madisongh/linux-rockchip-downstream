@@ -42,6 +42,7 @@
 #include <linux/wait.h>
 #include <linux/pm_runtime.h>
 #include <linux/sched/mm.h>
+#include <linux/string_helpers.h>
 
 #include <asm/cacheflush.h>
 
@@ -85,7 +86,7 @@
 
 #define DRIVER_MAJOR_VERISON		1
 #define DRIVER_MINOR_VERSION		2
-#define DRIVER_REVISION_VERSION		12
+#define DRIVER_REVISION_VERSION		14
 
 #define DRIVER_VERSION (STR(DRIVER_MAJOR_VERISON) "." STR(DRIVER_MINOR_VERSION) \
 			"." STR(DRIVER_REVISION_VERSION))
@@ -188,6 +189,9 @@ struct rga_internal_buffer {
 	/* physical address */
 	uint64_t phys_addr;
 
+	/* buffer size */
+	unsigned long size;
+
 	struct rga_memory_parm memory_parm;
 
 
@@ -210,6 +214,8 @@ struct rga_session {
 	int id;
 
 	pid_t tgid;
+
+	char *pname;
 };
 
 struct rga_job_buffer {

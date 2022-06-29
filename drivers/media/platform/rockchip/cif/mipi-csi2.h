@@ -20,14 +20,17 @@
  */
 #define CSI2_SINK_PAD			0
 #define CSI2_NUM_SINK_PADS		4
-#define CSI2_NUM_SRC_PADS		8
+#define CSI2_NUM_SRC_PADS		11
 #define CSI2_NUM_PADS			5
-#define CSI2_NUM_PADS_MAX		9
+#define CSI2_NUM_PADS_MAX		12
 #define CSI2_NUM_PADS_SINGLE_LINK	2
 #define MAX_CSI2_SENSORS		2
 
 #define RKCIF_DEFAULT_WIDTH	640
 #define RKCIF_DEFAULT_HEIGHT	480
+
+#define CSI_ERRSTR_LEN		(128)
+#define CSI_VCINFO_LEN		(12)
 
 /*
  * The default maximum bit-rate per lane in Mbps, if the
@@ -56,7 +59,8 @@
 #define CSIHOST_ERR1_ERR_BNDRY_MATCH	0x000000f0
 #define CSIHOST_ERR1_ERR_SEQ		0x00000f00
 #define CSIHOST_ERR1_ERR_FRM_DATA	0x0000f000
-#define CSIHOST_ERR1_ERR_CRC		0x1f000000
+#define CSIHOST_ERR1_ERR_CRC		0x0f000000
+#define CSIHOST_ERR1_ERR_ECC2		0x10000000
 
 #define CSIHOST_ERR2_PHYERR_ESC		0x0000000f
 #define CSIHOST_ERR2_PHYERR_SOTHS	0x000000f0
@@ -151,6 +155,8 @@ struct csi2_dev {
 	int			irq1;
 	int			irq2;
 	bool			is_check_sot_sync;
+	const char		*dev_name;
+	int			dsi_input_en;
 };
 
 u32 rkcif_csi2_get_sof(struct csi2_dev *csi2_dev);

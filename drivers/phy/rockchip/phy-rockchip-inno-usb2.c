@@ -30,6 +30,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/usb/of.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/role.h>
 #include <linux/usb/typec_mux.h>
 #include <linux/wakelock.h>
 
@@ -945,6 +946,18 @@ static int rockchip_usb2phy_set_mode(struct phy *phy,
 
 	switch (mode) {
 	case PHY_MODE_USB_OTG:
+		if (rphy->edev_self && submode) {
+			if (submode == USB_ROLE_HOST) {
+				extcon_set_state(rphy->edev, EXTCON_USB_HOST, true);
+				extcon_set_state(rphy->edev, EXTCON_USB, false);
+			} else if (submode == USB_ROLE_DEVICE) {
+				extcon_set_state(rphy->edev, EXTCON_USB_HOST, false);
+				extcon_set_state(rphy->edev, EXTCON_USB, true);
+			}
+
+			return ret;
+		}
+
 		/*
 		 * In case of using vbus to detect connect state by u2phy,
 		 * enable vbus detect on otg mode.
@@ -3535,6 +3548,9 @@ static const struct rockchip_usb2phy_cfg rk3588_phy_cfgs[] = {
 				.bvalid_det_en	= { 0x0080, 1, 1, 0, 1 },
 				.bvalid_det_st	= { 0x0084, 1, 1, 0, 1 },
 				.bvalid_det_clr = { 0x0088, 1, 1, 0, 1 },
+				.bvalid_grf_sel	= { 0x0010, 3, 3, 0, 1 },
+				.bvalid_grf_con	= { 0x0010, 3, 2, 2, 3 },
+				.bvalid_phy_con = { 0x0008, 1, 0, 2, 3 },
 				.bypass_dm_en	= { 0x000c, 5, 5, 0, 1 },
 				.bypass_sel	= { 0x000c, 6, 6, 0, 1 },
 				.iddig_output	= { 0x0010, 0, 0, 0, 1 },
