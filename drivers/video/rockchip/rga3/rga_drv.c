@@ -737,11 +737,11 @@ static long rga_ioctl_request_submit(unsigned long arg, bool run_enbale)
 				return -EFAULT;
 			}
 		}
-
-		mutex_lock(&request_manager->lock);
-		rga_request_put(request);
-		mutex_unlock(&request_manager->lock);
 	}
+
+	mutex_lock(&request_manager->lock);
+	rga_request_put(request);
+	mutex_unlock(&request_manager->lock);
 
 	return 0;
 }
@@ -819,6 +819,7 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 
 		memset(&request, 0x0, sizeof(request));
 
+		spin_lock_init(&request.lock);
 		request.sync_mode = cmd;
 		request.acquire_fence_fd = req_rga.in_fence_fd;
 		request.use_batch_mode = false;
