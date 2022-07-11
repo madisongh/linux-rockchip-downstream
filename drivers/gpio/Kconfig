@@ -1609,11 +1609,11 @@ config GPIO_VIPERBOARD
 
 endmenu
 
-config GPIO_FIREFLY
-    tristate "Firefly GPIO Demo support"
-    default y
-    help
-        Sample code of gpio
+config GPIO_FIREFLY_GL3321G
+	tristate "Firefly GL3321G GPIO driver support"
+	default y
+	help
+	  Sample code of gpio
 
 
 config GPIO_AGGREGATOR
