@@ -4534,6 +4534,7 @@
 		snps,axi-config = <&gmac0_stmmac_axi_setup>;
 		snps,mtl-rx-config = <&gmac0_mtl_rx_setup>;
 		snps,mtl-tx-config = <&gmac0_mtl_tx_setup>;
+		snps,txpbl = <0x4>;
 		status = "disabled";
 
 		mdio0: mdio {
@@ -4585,6 +4586,7 @@
 		snps,axi-config = <&gmac1_stmmac_axi_setup>;
 		snps,mtl-rx-config = <&gmac1_mtl_rx_setup>;
 		snps,mtl-tx-config = <&gmac1_mtl_tx_setup>;
+		snps,txpbl = <0x4>;
 		status = "disabled";
 
 		mdio1: mdio {
