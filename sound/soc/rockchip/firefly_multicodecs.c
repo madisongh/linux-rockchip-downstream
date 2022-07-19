@@ -329,6 +329,7 @@ static void adc_jack_handler(struct work_struct *work)
 					EXTCON_JACK_HEADPHONE, false);
 			extcon_set_state_sync(mc_data->extcon,
 					EXTCON_JACK_MICROPHONE, false);
+			es8323_line1_line2_line2diff_switch(INPUT_LIN2_DIFF);
 			return;
 		}
 		mc_data->hp_enable_state = true;
@@ -337,6 +338,7 @@ static void adc_jack_handler(struct work_struct *work)
 		snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
 		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
 		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);
+		es8323_line1_line2_line2diff_switch(INPUT_LIN1);
 		return;
 	}
 

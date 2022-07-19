@@ -1031,6 +1031,12 @@ config SPI_TLE62X0
 # Add new SPI protocol masters in alphabetical order above this line
 #
 
+config SPI_WK2XXX
+	tristate "wk2xxx Spi Switch Uart"
+	depends on SPI
+	help
+         Say Y to get the third party encryption service.
+
 endif # SPI_MASTER
 
 #
