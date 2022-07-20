@@ -5,13 +5,10 @@
  */
 
 / {
-	vcc_4g_pwr: vcc-4g-pwr {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc_4g_pwr";
-		regulator-boot-on;
-		regulator-always-on;
-		enable-active-high;
-		gpio = <&gpio3 RK_PD3 GPIO_ACTIVE_HIGH>;
+	gl3321g: gl3321g-pwr-gpio {
+		compatible = "firefly,gl3321g-gpio";
+		firefly-mdelay = <100>;
+		firefly-gl3321g-gpio = <&gpio3 RK_PD3 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
