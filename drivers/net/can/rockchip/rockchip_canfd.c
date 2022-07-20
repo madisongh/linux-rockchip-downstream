@@ -132,6 +132,9 @@ enum {
 #define RESET_MODE		0
 #define WORK_MODE		BIT(0)
 
+#define RX_PERIOD		BIT(2)
+#define TX_PERIOD		BIT(3)
+
 #define RX_FINISH_INT		BIT(0)
 #define TX_FINISH_INT		BIT(1)
 #define ERR_WARN_INT		BIT(2)
@@ -227,6 +230,7 @@ struct rockchip_canfd {
 	unsigned long mode;
 	int rx_fifo_shift;
 	u32 rx_fifo_mask;
+	struct delayed_work tx_err_work;
 };
 
 static inline u32 rockchip_canfd_read(const struct rockchip_canfd *priv,
@@ -481,6 +485,27 @@ static int rockchip_canfd_set_mode(struct net_device *ndev,
 	return 0;
 }
 
+static void rockchip_canfd_tx_err_delay_work(struct work_struct *work)
+{
+	struct rockchip_canfd *rcan =
+		container_of(work, struct rockchip_canfd, tx_err_work.work);
+	struct net_device *ndev = rcan->can.dev;
+	u32 mode;
+
+	mode = rockchip_canfd_read(rcan, CAN_ERR_CODE);
+	if (mode) {
+		schedule_delayed_work(&rcan->tx_err_work, 1);
+		return;
+	}
+
+	rockchip_canfd_start(ndev);
+
+	if (netif_queue_stopped(ndev)) {
+		can_get_echo_skb(ndev, 0);
+		netif_wake_queue(ndev);
+	}
+}
+
 /* transmit a CAN message
  * message layout in the sk_buff should be like this:
  * xx xx xx xx         ff         ll 00 11 22 33 44 55 66 77
@@ -537,7 +562,7 @@ static int rockchip_canfd_start_xmit(struct sk_buff *skb,
 				     *(u32 *)(cf->data + i));
 
 	can_put_echo_skb(skb, ndev, 0);
-
+	schedule_delayed_work(&rcan->tx_err_work, 1);
 	rockchip_canfd_write(rcan, CAN_CMD, cmd);
 
 	return NETDEV_TX_OK;
@@ -608,7 +633,7 @@ static int rockchip_canfd_rx(struct net_device *ndev)
 	return 1;
 }
 
-static int rockchip_canfd_err(struct net_device *ndev, u8 isr)
+static int rockchip_canfd_err(struct net_device *ndev, u32 isr)
 {
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
@@ -657,8 +682,10 @@ static int rockchip_canfd_err(struct net_device *ndev, u8 isr)
 	}
 
 	if (rcan->can.state >= CAN_STATE_BUS_OFF ||
-	    ((sta_reg & 0x20) == 0x20))
+	    ((sta_reg & 0x20) == 0x20)) {
+		cancel_delayed_work(&rcan->tx_err_work);
 		can_bus_off(ndev);
+	}
 
 	stats->rx_packets++;
 	stats->rx_bytes += cf->can_dlc;
@@ -673,13 +700,14 @@ static irqreturn_t rockchip_canfd_interrupt(int irq, void *dev_id)
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
 	u32 err_int = ERR_WARN_INT | RX_BUF_OV_INT | PASSIVE_ERR_INT |
-		     TX_LOSTARB_INT | BUS_ERR_INT;
+		     TX_LOSTARB_INT | BUS_ERR_INT | BUS_OFF_INT;
 	u32 isr;
 	u32 dlc = 0;
 	u32 quota = 0;
 
 	isr = rockchip_canfd_read(rcan, CAN_INT);
 	if (isr & TX_FINISH_INT) {
+		cancel_delayed_work(&rcan->tx_err_work);
 		dlc = rockchip_canfd_read(rcan, CAN_TXFIC);
 		/* transmission complete interrupt */
 		if (dlc & FDF_MASK)
@@ -752,6 +780,7 @@ static int rockchip_canfd_close(struct net_device *ndev)
 {
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 
+	cancel_delayed_work_sync(&rcan->tx_err_work);
 	netif_stop_queue(ndev);
 	rockchip_canfd_stop(ndev);
 	close_candev(ndev);
@@ -970,6 +999,7 @@ static int rockchip_canfd_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ndev);
 	SET_NETDEV_DEV(ndev, &pdev->dev);
+	INIT_DELAYED_WORK(&rcan->tx_err_work, rockchip_canfd_tx_err_delay_work);
 
 	pm_runtime_enable(&pdev->dev);
 	err = pm_runtime_get_sync(&pdev->dev);
