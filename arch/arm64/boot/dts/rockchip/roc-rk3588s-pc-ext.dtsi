@@ -34,7 +34,7 @@
 	pinctrl-0 = <&spi1m2_pins>;
 	num-cs = <1>;
 
-	spi_wk2xxx: spi_wk2xxx@00{
+	spi_wk2xxx: spi_wk2xxx@0{
 		status = "okay";
 		compatible = "firefly,spi-wk2xxx";
 		reg = <0x00>;
