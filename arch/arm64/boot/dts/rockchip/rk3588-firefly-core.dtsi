@@ -282,6 +282,30 @@
 	status = "okay";
 };
 
+#ifdef rk3588
+
+&display_subsystem {
+       clocks = <&hdptxphy_hdmi_clk0>, <&hdptxphy_hdmi_clk1>;
+       clock-names = "hdmi0_phy_pll", "hdmi1_phy_pll";
+};
+
+&hdptxphy_hdmi_clk1 {
+       status = "okay";
+};
+
+#else
+
+&display_subsystem {
+       clocks = <&hdptxphy_hdmi_clk0>;
+       clock-names = "hdmi0_phy_pll";
+};
+
+#endif
+
+&hdptxphy_hdmi_clk0 {
+       status = "okay";
+};
+
 /* vp0 & vp1 splice for 8K output */
 &vp0 {
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER0 | 1 << ROCKCHIP_VOP2_ESMART0)>;
