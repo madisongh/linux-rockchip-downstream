@@ -235,6 +235,7 @@ static int pc9202_wdt_probe(struct i2c_client *client,
 	uint8_t reg_value; 
 	struct iio_channel *channel;
 	int raw;
+	int retry_count, ret;
 
     if (!of_device_is_available(client->dev.of_node)) {
 		return 0;
@@ -254,14 +255,20 @@ static int pc9202_wdt_probe(struct i2c_client *client,
 	i2c_set_clientdata(client,pEnc);
 	the_sw2001 = pEnc;
 	
-	if(0 != iReadByte(SW2001_REG_WDT_CTRL, &reg_value))
-	{
-		printk("====== i2c detect failed watchdog init err==%x=====\r\n", reg_value);
-		goto err;
+	for (retry_count = 0; retry_count < 100; retry_count++) {
+	    ret = iReadByte(SW2001_REG_WDT_CTRL, &reg_value);
+	    if(0 != ret) {
+		printk("====== i2c detect failed watchdog init err: 0x%x ======\n", reg_value);
+	    } else {
+		printk("====== i2c detect success watchdog init ======\n");
+		break;
+	    }
+	    msleep(10);
 	}
-	else
-	{
-		printk("====== i2c detect success watchdog init========\r\n");
+
+	if (0 != ret) {
+	    printk("====== i2c detect failed watchdog init ======\n");
+	    goto err;
 	}
 
 	major = register_chrdev(0, "wdt_crl", &wdt_fops);
