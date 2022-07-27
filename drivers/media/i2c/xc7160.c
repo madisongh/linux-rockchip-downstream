@@ -344,11 +344,13 @@ static int sc8238_read_reg(struct i2c_client *client, u16 reg,
 		return -EINVAL;
 
 	data_be_p = (u8 *)&data_be;
+	/* Write register address */
 	msgs[0].addr = 0x30;
 	msgs[0].flags = 0;
 	msgs[0].len = 2;
 	msgs[0].buf = (u8 *)&reg_addr_be;
 
+	/* Read data from register */
 	msgs[1].addr = 0x30;
 	msgs[1].flags = I2C_M_RD;
 	msgs[1].len = len;
@@ -448,7 +450,6 @@ static int sc8238_check_sensor_id(struct xc7160 *xc7160,
 	
 }
 
-
 static int camera_isp_sensor_initial(struct xc7160 *xc7160)
 {
 	struct device *dev = &xc7160->client->dev;
@@ -464,21 +465,23 @@ static int camera_isp_sensor_initial(struct xc7160 *xc7160)
 	}
 
 	xc7160->initial_status = true;
+	ret=sc8238_check_sensor_id(xc7160,xc7160->client);
+	if(ret)
+		return ret;
 
-	msleep(10);
 	if( xc7160->isp_out_colorbar != true ){
+		xc7160_write_array(xc7160->client, xc7160_stream_off_regs);
 		ret = xc7160_write_array(xc7160->client, xc7160_i2c_bypass_on_regs);
 		if (ret) {
 			dev_err(dev, "could not set bypass on registers\n");
 			return ret;
 		} 	
-		msleep(10);
+		msleep(1);
 		i = sc8238_write_array(xc7160->client, sc8238_global_regs);
 		if (i){ 
 			dev_err(dev,  "could not set sensor_initial_regs\n");
 			xc7160->isp_out_colorbar = true;
 		}
-		msleep(10);
 		ret = xc7160_write_array(xc7160->client, xc7160_i2c_bypass_off_regs);
 		if (ret) {
 			dev_err(dev, "could not set bypass off registers\n");
@@ -807,7 +810,7 @@ static int __xc7160_start_stream(struct xc7160 *xc7160)
 		ret = xc7160_write_array(xc7160->client, xc7160_stream_on_regs);
 
 #ifdef FIREFLY_DEBUG
-	xc7160_check_isp_reg(xc7160);
+		xc7160_check_isp_reg(xc7160);
 #endif // DEBUG
 	
 	if(ret)
@@ -890,6 +893,17 @@ static int xc7160_s_power(struct v4l2_subdev *sd, int on)
 		if(ret){
 			dev_err(dev, "xc7160 power on failed\n");
 		}
+		xc7160->power_on = true;
+/*
+		if(xc7160->initial_status != true){
+			ret = camera_isp_sensor_initial(xc7160);
+		}
+*/
+		ret = xc7160_check_isp_id(xc7160,xc7160->client);
+		if (ret){
+			dev_err(dev, "write XC7160_REG_HIGH_SELECT failed\n");
+			goto unlock_and_return;
+		}
 		
 		if(xc7160->initial_status != true){
 			xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
@@ -970,6 +984,7 @@ static inline u32 xc7160_cal_delay(u32 cycles)
 static int __xc7160_power_on(struct xc7160 *xc7160)
 {
 	int ret;
+	u32 delay_us;
 	struct device *dev = &xc7160->client->dev;
 	
 
@@ -978,6 +993,23 @@ static int __xc7160_power_on(struct xc7160 *xc7160)
 					   xc7160->pins_default);
 		if (ret < 0)
 			dev_err(dev, "could not set pins\n");
+	}
+
+	if (!IS_ERR(xc7160->reset_gpio))
+		gpiod_set_value_cansleep(xc7160->reset_gpio, 0);	
+
+
+	if (!IS_ERR(xc7160->pwdn_gpio))
+		gpiod_set_value_cansleep(xc7160->pwdn_gpio, 0);
+
+	msleep(4);
+
+	if (clkout_enabled_index){
+		ret = clk_prepare_enable(xc7160->xvclk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable xvclk\n");
+			return ret;
+		}
 	}
 
 	ret = regulator_bulk_enable(XC7160_NUM_SUPPLIES, xc7160->supplies);
@@ -989,26 +1021,20 @@ static int __xc7160_power_on(struct xc7160 *xc7160)
 	if (!IS_ERR(xc7160->mipi_pwr_gpio))
 		gpiod_set_value_cansleep(xc7160->mipi_pwr_gpio, 1);
 
-	if (!IS_ERR(xc7160->pwdn_gpio))
-		gpiod_set_value_cansleep(xc7160->pwdn_gpio, 1);
 
-
-	msleep(5);
-
-	if (clkout_enabled_index){
-		ret = clk_prepare_enable(xc7160->xvclk);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable xvclk\n");
-			return ret;
-		}
-	}
-
-	usleep_range(1, 1);
+	usleep_range(500, 1000);
 	if (!IS_ERR(xc7160->reset_gpio))
 		gpiod_set_value_cansleep(xc7160->reset_gpio, 1);
 
-	msleep(30);
-	xc7160->power_on = true;
+	usleep_range(500, 1000);
+	if (!IS_ERR(xc7160->pwdn_gpio))
+		gpiod_set_value_cansleep(xc7160->pwdn_gpio, 1);
+
+	//  msleep(25);
+	// /* 8192 cycles prior to first SCCB transaction */
+	delay_us = xc7160_cal_delay(8192);
+	usleep_range(delay_us, delay_us * 2);
+	// xc7160->power_on = true;
 
 	return 0;
 
@@ -1024,14 +1050,13 @@ static void __xc7160_power_off(struct xc7160 *xc7160)
 	int ret;
 	struct device *dev = &xc7160->client->dev;
 	xc7160->initial_status = false;
-	xc7160->power_on = false;
 
 	if (!IS_ERR(xc7160->reset_gpio))
-		gpiod_set_value_cansleep(xc7160->reset_gpio, 0);
+		gpiod_set_value_cansleep(xc7160->reset_gpio, 1);
 	if (!IS_ERR(xc7160->pwdn_gpio))
-		gpiod_set_value_cansleep(xc7160->pwdn_gpio,0);
+		gpiod_set_value_cansleep(xc7160->pwdn_gpio,1);
 	if (!IS_ERR(xc7160->mipi_pwr_gpio))
-		gpiod_set_value_cansleep(xc7160->mipi_pwr_gpio,0);
+		gpiod_set_value_cansleep(xc7160->mipi_pwr_gpio,1);
 	if (clkout_enabled_index)
 		clk_disable_unprepare(xc7160->xvclk);
 	if (!IS_ERR_OR_NULL(xc7160->pins_sleep)) {
@@ -1336,22 +1361,9 @@ static int xc7160_probe(struct i2c_client *client,
 		goto err_power_off;
 	}
 
-	ret = xc7160_write_array(xc7160->client, xc7160_global_regs);
-	if(ret){
-		dev_err(dev, "could not set init registers\n");
-		goto err_power_off;
-	}
-
 	ret = xc7160_check_isp_id(xc7160, client);
 	if (ret)
 		goto err_power_off;
-	
-	ret = sc8238_check_sensor_id(xc7160,xc7160->client);
-	if(ret)
-		goto err_power_off;
-
-	__xc7160_power_off(xc7160);
-
 
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
 	sd->internal_ops = &xc7160_internal_ops;
