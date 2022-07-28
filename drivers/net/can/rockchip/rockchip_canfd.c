@@ -492,6 +492,9 @@ static void rockchip_canfd_tx_err_delay_work(struct work_struct *work)
 	struct net_device *ndev = rcan->can.dev;
 	u32 mode;
 
+	if (rcan->can.state == CAN_STATE_STOPPED)
+		return;
+
 	mode = rockchip_canfd_read(rcan, CAN_ERR_CODE);
 	if (mode) {
 		schedule_delayed_work(&rcan->tx_err_work, 1);
@@ -780,7 +783,8 @@ static int rockchip_canfd_close(struct net_device *ndev)
 {
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 
-	cancel_delayed_work_sync(&rcan->tx_err_work);
+	cancel_delayed_work(&rcan->tx_err_work);
+	flush_delayed_work(&rcan->tx_err_work);
 	netif_stop_queue(ndev);
 	rockchip_canfd_stop(ndev);
 	close_candev(ndev);
