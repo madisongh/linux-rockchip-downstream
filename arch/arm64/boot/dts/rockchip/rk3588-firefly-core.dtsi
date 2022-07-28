@@ -308,7 +308,6 @@
 
 /* vp0 & vp1 splice for 8K output */
 &vp0 {
-	cursor-win-id=<ROCKCHIP_VOP2_CLUSTER0>;
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER0 | 1 << ROCKCHIP_VOP2_ESMART0)>;
 	rockchip,primary-plane = <ROCKCHIP_VOP2_ESMART0>;
 	assigned-clocks = <&cru ACLK_VOP>;
@@ -316,19 +315,16 @@
 };
 
 &vp1 {
-	cursor-win-id=<ROCKCHIP_VOP2_CLUSTER1>;
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER1 | 1 << ROCKCHIP_VOP2_ESMART1)>;
 	rockchip,primary-plane = <ROCKCHIP_VOP2_ESMART1>;
 };
 
 &vp2 {
-	cursor-win-id=<ROCKCHIP_VOP2_CLUSTER2>;
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER2 | 1 << ROCKCHIP_VOP2_ESMART2)>;
 	rockchip,primary-plane = <ROCKCHIP_VOP2_ESMART2>;
 };
 
 &vp3 {
-	cursor-win-id=<ROCKCHIP_VOP2_CLUSTER3>;
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER3 | 1 << ROCKCHIP_VOP2_ESMART3)>;
 	rockchip,primary-plane = <ROCKCHIP_VOP2_ESMART3>;
 };
