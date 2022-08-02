@@ -1233,4 +1233,10 @@ config XILINX_XADC
 	  The driver can also be build as a module. If so, the module will be called
 	  xilinx-xadc.
 
+config ADC_FIREFLY
+    tristate "Firefly ADC Demo support"
+	default y
+	help
+	  Sample code of ADC.
+
 endmenu
