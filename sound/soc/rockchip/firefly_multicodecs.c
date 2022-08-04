@@ -68,6 +68,7 @@ enum LINEIN_TYPE{
 #define INPUT_LIN2_ADC 5
 #define INPUT_LIN2_DIFF_ADC 1800
 int first_init_status = 0;
+int first_init_adc_flag = 0;
 
 struct multicodecs_data {
 	struct snd_soc_card snd_card;
@@ -280,28 +281,33 @@ static void adc_jack_poll_handler(struct work_struct *work)
 						  handler);
 	struct snd_soc_jack *jack_headset = mc_data->jack_headset;
 	int value, ret;
+	bool hp_state;
 
 	ret = iio_read_channel_raw(mc_data->adc, &value);
 	//printk("debug %s-%d : use adc to detect headphone,adc rawvalue  = %d \n",__func__,__LINE__,value);
-	if( value < (mc_data->hp_det_adc_value -100)  || value > (mc_data->hp_det_adc_value +100) ){
-		mc_data->hp_enable_state = false;
+	if( value < (mc_data->hp_det_adc_value -100)  || value > (mc_data->hp_det_adc_value +100) )
+		hp_state = false;
+	else
+		hp_state = true;
 
-		snd_soc_jack_report(jack_headset, 0, SND_JACK_HEADSET);
-		snd_soc_jack_report(jack_headset, SND_JACK_LINEOUT, SND_JACK_LINEOUT);
-		extcon_set_state_sync(mc_data->extcon,
-				EXTCON_JACK_HEADPHONE, false);
-		extcon_set_state_sync(mc_data->extcon,
-				EXTCON_JACK_MICROPHONE, false);		
-	}else{
-		mc_data->hp_enable_state = true;
-		firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
+	if(mc_data->hp_enable_state != hp_state || first_init_adc_flag == 0){
+		if(hp_state){
+			firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
+			snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
+			snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
+			extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
+			extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);
 
-		snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
-		snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
-		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
-		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);	
+		}else{
+			snd_soc_jack_report(jack_headset, 0, SND_JACK_HEADSET);
+			snd_soc_jack_report(jack_headset, SND_JACK_LINEOUT, SND_JACK_LINEOUT);
+			extcon_set_state_sync(mc_data->extcon,EXTCON_JACK_HEADPHONE, false);
+			extcon_set_state_sync(mc_data->extcon,EXTCON_JACK_MICROPHONE, false);
+		}
+		first_init_adc_flag = 1;
 	}
 
+	mc_data->hp_enable_state = hp_state;
 	queue_delayed_work(system_freezable_wq, &mc_data->handler, msecs_to_jiffies(500));
 }
 
