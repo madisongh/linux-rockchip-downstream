@@ -1357,6 +1357,14 @@ config TOUCHSCREEN_ZINITIX
 	  To compile this driver as a module, choose M here: the
 	  module will be called zinitix.
 
+config TOUCHSCREEN_GT9XXX
+	bool "GT9XXX"
+	depends on I2C
+	default n
+	help
+		Say Y here if you have GT9XXX touch panel.
+		If unsure, say N.
+
 config TOUCHSCREEN_HX83102
     bool "HIMAX HX83102"
     depends on I2C

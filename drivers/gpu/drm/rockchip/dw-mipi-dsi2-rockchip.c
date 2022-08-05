@@ -825,6 +825,9 @@ static void dw_mipi_dsi2_enable(struct dw_mipi_dsi2 *dsi2)
 {
 	dw_mipi_dsi2_ipi_set(dsi2);
 
+	regmap_write(dsi2->regmap, DSI2_PWR_UP, RESET);
+	regmap_write(dsi2->regmap, DSI2_PWR_UP, POWER_UP);
+
 	if (dsi2->mode_flags & MIPI_DSI_MODE_VIDEO)
 		dw_mipi_dsi2_set_vid_mode(dsi2);
 	else
@@ -902,7 +905,7 @@ dw_mipi_dsi2_encoder_atomic_check(struct drm_encoder *encoder,
 
 	if (!(dsi2->mode_flags & MIPI_DSI_MODE_VIDEO)) {
 		s->output_flags |= ROCKCHIP_OUTPUT_MIPI_DS_MODE;
-		s->hold_mode = true;
+		//s->hold_mode = true;
 	}
 
 	if (dsi2->slave) {
