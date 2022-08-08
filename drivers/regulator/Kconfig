@@ -37,6 +37,13 @@ config REGULATOR_FIXED_VOLTAGE
 	  useful for systems which use a combination of software
 	  managed regulators and simple non-configurable regulators.
 
+config REGULATOR_FIXED_VOLTAGE_FIREFLY
+	tristate "Fixed voltage regulator support"
+	help
+	  This driver provides support for fixed voltage regulators,
+	  useful for systems which use a combination of software
+	  managed regulators and simple non-configurable regulators.
+
 config REGULATOR_VIRTUAL_CONSUMER
 	tristate "Virtual regulator consumer support"
 	help
