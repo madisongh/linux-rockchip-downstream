@@ -121,3 +121,13 @@
 		regulator-suspend-microvolt = <750000>;
 	};
 };
+
+&dfi {
+	status = "okay";
+};
+
+&dmc {
+	status = "okay";
+	center-supply = <&vdd_ddr_s0>;
+	mem-supply = <&vdd_log_s0>;
+};
