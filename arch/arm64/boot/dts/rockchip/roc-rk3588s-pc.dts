@@ -7,8 +7,8 @@
 /dts-v1/;
 
 #include "roc-rk3588s-pc.dtsi"
+//#include "rk3588-firefly-demo.dtsi"
 #include "rk3588-roc-pc-cam-8ms1m.dtsi"
-#include "rk3588-firefly-demo.dtsi"
 
 / {
 	model = "Firefly ROC-RK3588S-PC HDMI(Linux)";
