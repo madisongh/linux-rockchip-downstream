@@ -152,6 +152,8 @@
 /* ap6275 : wifi */
 &wireless_wlan{
 	wifi_chip_type = "ap6275p";
+	pinctrl-0 = <&wifi_poweren_gpio>;
+	/delete-property/ WIFI,host_wake_irq; 
 	status = "okay";
 };
 
