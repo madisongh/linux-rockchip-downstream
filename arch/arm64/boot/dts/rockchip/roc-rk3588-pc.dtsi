@@ -67,7 +67,8 @@
 	};
 
 	vcc_hub3_reset_ext: vcc-hub3-reset-ext {	/* on ext board */
-		compatible = "regulator-fixed";
+		compatible = "regulator-fixed-firefly";
+		regulator-fixed-kernel-reset-ms = <3000>;
 		regulator-name = "vcc_hub3_reset_ext";
 		regulator-always-on;
 		enable-active-high;
@@ -343,8 +344,10 @@
 /* usb power */
 
 &vcc_hub3_reset{
-	status = "okay";
+	compatible = "regulator-fixed-firefly";
+	regulator-fixed-kernel-reset-ms = <3000>;
 	gpio = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;  
+	status = "okay";
 };
 
 &vcc5v0_host3{
