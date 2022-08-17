@@ -2746,7 +2746,7 @@ static int rk3588_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 		 * 3. Set utmi_opmode to 2'b00 (normal)
 		 */
 		ret |= regmap_write(rphy->grf, 0x000c,
-				    GENMASK(20, 16) | 0x0014);
+				    GENMASK(20, 16) | 0x10);
 
 		/* HS DC Voltage Level Adjustment 4'b1001 : +5.89% */
 		ret |= regmap_write(rphy->grf, 0x0004,
@@ -2763,7 +2763,7 @@ static int rk3588_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 		 * 3. Set utmi_opmode to 2'b00 (normal)
 		 */
 		ret |= regmap_write(rphy->grf, 0x000c,
-				    GENMASK(20, 16) | 0x0014);
+				    GENMASK(20, 16) | 0x10);
 
 		/* HS DC Voltage Level Adjustment 4'b1001 : +5.89% */
 		ret |= regmap_write(rphy->grf, 0x0004,
