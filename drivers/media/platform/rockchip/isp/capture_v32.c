@@ -799,20 +799,17 @@ static void update_mi(struct rkisp_stream *stream)
 		}
 	} else if (stream->is_using_resmem) {
 		/* resmem for fast stream NV12 output */
-		dma_addr_t max_addr = dev->resmem_addr + dev->resmem_size;
-		u32 bytesperline = stream->out_fmt.plane_fmt[0].bytesperline;
-		u32 buf_size = bytesperline * ALIGN(stream->out_fmt.height, 16) * 3 / 2;
-
 		reg = stream->config->mi.y_base_ad_init;
-		val = dev->resmem_addr_curr;
+		val = dev->tb_stream_info.buf[dev->tb_addr_idx].dma_addr;
 		rkisp_write(dev, reg, val, false);
 
 		reg = stream->config->mi.cb_base_ad_init;
-		val += bytesperline * stream->out_fmt.height;
+		val += dev->tb_stream_info.bytesperline * stream->out_fmt.height;
 		rkisp_write(dev, reg, val, false);
 
-		if (dev->resmem_addr_curr + buf_size * 2 <= max_addr)
-			dev->resmem_addr_curr += buf_size;
+		if (dev->tb_addr_idx < dev->tb_stream_info.buf_max - 1)
+			dev->tb_addr_idx++;
+		stream->is_tb_s_info = true;
 	} else if (!stream->is_pause) {
 		stream->is_pause = true;
 		stream->ops->disable_mi(stream);
@@ -1053,7 +1050,7 @@ static int mi_frame_start(struct rkisp_stream *stream, u32 mis)
 			rkisp_stream_config_rsz(stream, false);
 			stream->is_crop_upd = false;
 		}
-		/* update buf for mulit sensor at readback */
+		/* update buf for multi sensor at readback */
 		if (!mis && !stream->ispdev->hw_dev->is_single &&
 		    !stream->curr_buf &&
 		    !list_empty(&stream->buf_queue)) {
@@ -1094,7 +1091,7 @@ static int mi_frame_end(struct rkisp_stream *stream)
 		}
 
 		if (vb2_buf->memory)
-			vb2_buffer_done(vb2_buf, VB2_BUF_STATE_DONE);
+			rkisp_stream_buf_done(stream, stream->curr_buf);
 		else
 			rkisp_rockit_buf_done(stream, ROCKIT_DVBM_END);
 	}
@@ -1304,7 +1301,6 @@ static int rkisp_create_dummy_buf(struct rkisp_stream *stream)
 	buf->size = dev->isp_sdev.in_crop.width * dev->cap_dev.wrap_line * 2;
 	if (stream->out_isp_fmt.output_format == ISP32_MI_OUTPUT_YUV420)
 		buf->size = buf->size - buf->size / 4;
-	buf->size = stream->out_fmt.plane_fmt[0].sizeimage;
 	buf->is_need_dbuf = true;
 	ret = rkisp_alloc_buffer(stream->ispdev, buf);
 	if (ret == 0) {
@@ -1397,7 +1393,7 @@ static void rkisp_stop_streaming(struct vb2_queue *queue)
 		v4l2_err(v4l2_dev, "pipeline close failed error:%d\n", ret);
 	rkisp_destroy_dummy_buf(stream);
 	atomic_dec(&dev->cap_dev.refcnt);
-
+	tasklet_disable(&stream->buf_done_tasklet);
 end:
 	mutex_unlock(&dev->hw_dev->dev_lock);
 
@@ -1532,6 +1528,7 @@ rkisp_start_streaming(struct vb2_queue *queue, unsigned int count)
 		v4l2_err(v4l2_dev, "start pipeline failed %d\n", ret);
 		goto pipe_stream_off;
 	}
+	tasklet_enable(&stream->buf_done_tasklet);
 end:
 	mutex_unlock(&dev->hw_dev->dev_lock);
 	return 0;
@@ -1708,6 +1705,8 @@ void rkisp_unregister_stream_v32(struct rkisp_device *dev)
 	struct rkisp_capture_device *cap_dev = &dev->cap_dev;
 	struct rkisp_stream *stream;
 
+	rkisp_rockit_dev_deinit();
+
 	stream = &cap_dev->stream[RKISP_STREAM_MP];
 	rkisp_unregister_stream_vdev(stream);
 	stream = &cap_dev->stream[RKISP_STREAM_SP];
@@ -1756,6 +1755,18 @@ void rkisp_mi_v32_isr(u32 mis_val, struct rkisp_device *dev)
 		stream->dbg.delay = ns - dev->isp_sdev.frm_timestamp;
 		stream->dbg.timestamp = ns;
 		stream->dbg.id = seq;
+
+		if (stream->is_tb_s_info) {
+			struct rkisp_tb_stream_info *tb_info = &dev->tb_stream_info;
+			u32 idx;
+
+			if (tb_info->buf_cnt < tb_info->buf_max)
+				tb_info->buf_cnt++;
+			idx = tb_info->buf_cnt - 1;
+			dev->tb_stream_info.buf[idx].sequence = seq;
+			dev->tb_stream_info.buf[idx].timestamp = ns;
+			stream->is_tb_s_info = false;
+		}
 
 		if (stream->stopping) {
 			/*

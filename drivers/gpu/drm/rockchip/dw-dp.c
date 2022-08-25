@@ -2023,6 +2023,9 @@ static int dw_dp_bridge_mode_valid(struct drm_bridge *bridge,
 	if (dp->split_mode)
 		drm_mode_convert_to_origin_mode(&m);
 
+	if (m.hsync_end - m.hsync_start <= 8)
+		return MODE_HSYNC_NARROW;
+
 	if (info->color_formats & DRM_COLOR_FORMAT_YCRCB420 &&
 	    link->vsc_sdp_extension_for_colorimetry_supported &&
 	    (drm_mode_is_420_only(info, &m) || drm_mode_is_420_also(info, &m)))
@@ -2037,9 +2040,6 @@ static int dw_dp_bridge_mode_valid(struct drm_bridge *bridge,
 	if (!link->vsc_sdp_extension_for_colorimetry_supported &&
 	    drm_mode_is_420_only(info, &m))
 		return MODE_NO_420;
-
-	if (m.hsync_end - m.hsync_start < 32)
-		return MODE_HSYNC_NARROW;
 
 	if (!dw_dp_bandwidth_ok(dp, &m, min_bpp, link->lanes, link->rate))
 		return MODE_CLOCK_HIGH;
@@ -2159,11 +2159,6 @@ static int dw_dp_connector_init(struct dw_dp *dp)
 	dp->color_format_capacity = prop;
 	drm_object_attach_property(&connector->base, prop, 0);
 
-	dp->sub_dev.connector = connector;
-	dp->sub_dev.of_node = dp->dev->of_node;
-	dp->sub_dev.loader_protect = dw_dp_loader_protect;
-	rockchip_drm_register_sub_dev(&dp->sub_dev);
-
 	return 0;
 }
 
@@ -2171,6 +2166,8 @@ static int dw_dp_bridge_attach(struct drm_bridge *bridge,
 			       enum drm_bridge_attach_flags flags)
 {
 	struct dw_dp *dp = bridge_to_dp(bridge);
+	struct drm_connector *connector;
+	bool skip_connector = false;
 	int ret;
 
 	if (!bridge->encoder) {
@@ -2194,14 +2191,36 @@ static int dw_dp_bridge_attach(struct drm_bridge *bridge,
 			return ret;
 		}
 
-		if (!(next_bridge->ops & DRM_BRIDGE_OP_MODES))
-			return 0;
+		skip_connector = !(next_bridge->ops & DRM_BRIDGE_OP_MODES);
 	}
 
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
 		return 0;
 
-	return dw_dp_connector_init(dp);
+	if (!skip_connector) {
+		ret = dw_dp_connector_init(dp);
+		if (ret) {
+			DRM_DEV_ERROR(dp->dev, "failed to create connector\n");
+			return ret;
+		}
+
+		connector = &dp->connector;
+	} else {
+		struct list_head *connector_list =
+			&bridge->dev->mode_config.connector_list;
+
+		list_for_each_entry(connector, connector_list, head)
+			if (drm_connector_has_possible_encoder(connector,
+							       bridge->encoder))
+				break;
+	}
+
+	dp->sub_dev.connector = connector;
+	dp->sub_dev.of_node = dp->dev->of_node;
+	dp->sub_dev.loader_protect = dw_dp_loader_protect;
+	rockchip_drm_register_sub_dev(&dp->sub_dev);
+
+	return 0;
 }
 
 static void dw_dp_bridge_detach(struct drm_bridge *bridge)

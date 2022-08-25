@@ -439,10 +439,9 @@ int rkisp_stream_frame_start(struct rkisp_device *dev, u32 isp_mis)
 	struct rkisp_stream *stream;
 	int i;
 
-	if (isp_mis) {
+	if (isp_mis)
 		rkisp_dvbm_event(dev, CIF_ISP_V_START);
-		rkisp_bridge_update_mi(dev, isp_mis);
-	}
+	rkisp_bridge_update_mi(dev, isp_mis);
 
 	for (i = 0; i < RKISP_MAX_STREAM; i++) {
 		if (i == RKISP_STREAM_VIR || i == RKISP_STREAM_LUMA)
@@ -947,8 +946,7 @@ static void restrict_rsz_resolution(struct rkisp_stream *stream,
 		max_rsz->width = t->out_fmt.width / 4;
 		max_rsz->height = t->out_fmt.height / 4;
 	} else if (stream->id == RKISP_STREAM_LUMA) {
-		bool bigmode = rkisp_params_check_bigmode(&dev->params_vdev);
-		u32 div = bigmode ? 32 : 16;
+		u32 div = dev->is_bigmode ? 32 : 16;
 
 		max_rsz->width = input_win->width / div;
 		max_rsz->height = input_win->height / div;
@@ -1144,7 +1142,6 @@ int rkisp_fh_open(struct file *filp)
 	struct rkisp_stream *stream = video_drvdata(filp);
 	int ret;
 
-	stream->is_using_resmem = false;
 	ret = v4l2_fh_open(filp);
 	if (!ret) {
 		ret = v4l2_pipeline_pm_get(&stream->vnode.vdev.entity);
@@ -1197,6 +1194,9 @@ static const struct v4l2_file_operations rkisp_fops = {
 	.unlocked_ioctl = video_ioctl2,
 	.poll = vb2_fop_poll,
 	.mmap = vb2_fop_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = video_ioctl2,
+#endif
 };
 
 /*
@@ -1468,8 +1468,7 @@ static int rkisp_set_fps(struct rkisp_stream *stream, int *fps)
 	if (dev->isp_ver != ISP_V32)
 		return -EINVAL;
 
-	rkisp_rockit_fps_set(fps, stream);
-	return 0;
+	return rkisp_rockit_fps_set(fps, stream);
 }
 
 static int rkisp_get_fps(struct rkisp_stream *stream, int *fps)
@@ -1479,8 +1478,35 @@ static int rkisp_get_fps(struct rkisp_stream *stream, int *fps)
 	if (dev->isp_ver != ISP_V32)
 		return -EINVAL;
 
-	rkisp_rockit_fps_get(fps, stream);
+	return rkisp_rockit_fps_get(fps, stream);
+}
+
+int rkisp_get_tb_stream_info(struct rkisp_stream *stream,
+			     struct rkisp_tb_stream_info *info)
+{
+	struct rkisp_device *dev = stream->ispdev;
+
+	if (stream->id != RKISP_STREAM_MP) {
+		v4l2_err(&dev->v4l2_dev, "fast only support for MP\n");
+		return -EINVAL;
+	}
+
+	if (!dev->tb_stream_info.buf_max) {
+		v4l2_err(&dev->v4l2_dev, "thunderboot no enough memory for image\n");
+		return -EINVAL;
+	}
+
+	memcpy(info, &dev->tb_stream_info, sizeof(*info));
 	return 0;
+}
+
+int rkisp_free_tb_stream_buf(struct rkisp_stream *stream)
+{
+	struct rkisp_device *dev = stream->ispdev;
+	struct rkisp_isp_subdev *sdev = &dev->isp_sdev;
+	struct v4l2_subdev *sd = &sdev->sd;
+
+	return sd->ops->core->ioctl(sd, RKISP_CMD_FREE_SHARED_BUF, NULL);
 }
 
 static long rkisp_ioctl_default(struct file *file, void *fh,
@@ -1489,7 +1515,7 @@ static long rkisp_ioctl_default(struct file *file, void *fh,
 	struct rkisp_stream *stream = video_drvdata(file);
 	long ret = 0;
 
-	if (!arg)
+	if (!arg && cmd != RKISP_CMD_FREE_TB_STREAM_BUF)
 		return -EINVAL;
 
 	switch (cmd) {
@@ -1546,6 +1572,12 @@ static long rkisp_ioctl_default(struct file *file, void *fh,
 		break;
 	case RKISP_CMD_GET_FPS:
 		ret = rkisp_get_fps(stream, arg);
+		break;
+	case RKISP_CMD_GET_TB_STREAM_INFO:
+		ret = rkisp_get_tb_stream_info(stream, arg);
+		break;
+	case RKISP_CMD_FREE_TB_STREAM_BUF:
+		ret = rkisp_free_tb_stream_buf(stream);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1796,6 +1828,38 @@ static const struct v4l2_ioctl_ops rkisp_v4l2_ioctl_ops = {
 	.vidioc_default = rkisp_ioctl_default,
 };
 
+static void rkisp_buf_done_task(unsigned long arg)
+{
+	struct rkisp_stream *stream = (struct rkisp_stream *)arg;
+	struct rkisp_buffer *buf = NULL;
+	unsigned long lock_flags = 0;
+	LIST_HEAD(local_list);
+
+	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
+	list_replace_init(&stream->buf_done_list, &local_list);
+	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
+
+	while (!list_empty(&local_list)) {
+		buf = list_first_entry(&local_list,
+				       struct rkisp_buffer, queue);
+		list_del(&buf->queue);
+		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
+	}
+}
+
+void rkisp_stream_buf_done(struct rkisp_stream *stream,
+			   struct rkisp_buffer *buf)
+{
+	unsigned long lock_flags = 0;
+
+	if (!stream || !buf)
+		return;
+	spin_lock_irqsave(&stream->vbq_lock, lock_flags);
+	list_add_tail(&buf->queue, &stream->buf_done_list);
+	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
+	tasklet_schedule(&stream->buf_done_tasklet);
+}
+
 static void rkisp_stream_fast(struct work_struct *work)
 {
 	struct rkisp_capture_device *cap_dev =
@@ -1803,6 +1867,8 @@ static void rkisp_stream_fast(struct work_struct *work)
 	struct rkisp_stream *stream = &cap_dev->stream[0];
 	struct vb2_queue *q = &stream->vnode.buf_queue;
 	struct rkisp_device *ispdev = cap_dev->ispdev;
+	struct rkisp_tb_stream_info *info = &ispdev->tb_stream_info;
+	u32 i;
 
 	v4l2_pipeline_pm_get(&stream->vnode.vdev.entity);
 	rkisp_chk_tb_over(ispdev);
@@ -1812,18 +1878,30 @@ static void rkisp_stream_fast(struct work_struct *work)
 	}
 	stream->is_pre_on = true;
 	stream->is_using_resmem = true;
-	ispdev->resmem_addr_curr = ispdev->resmem_addr;
-	if (ispdev->resmem_size < stream->out_fmt.plane_fmt[0].sizeimage) {
+	info->width = stream->out_fmt.width;
+	info->height = stream->out_fmt.height;
+	info->bytesperline = stream->out_fmt.plane_fmt[0].bytesperline;
+	info->frame_size = info->bytesperline * ALIGN(info->height, 16) * 3 / 2;
+	info->buf_max = ispdev->resmem_size / info->frame_size;
+	if (!info->buf_max) {
 		stream->is_using_resmem = false;
 		v4l2_warn(&ispdev->v4l2_dev,
 			  "resmem size:%zu no enough for image:%d\n",
-			  ispdev->resmem_size, stream->out_fmt.plane_fmt[0].sizeimage);
+			  ispdev->resmem_size, info->frame_size);
+	} else {
+		ispdev->tb_addr_idx = 0;
+		info->buf_cnt = 0;
+		if (info->buf_max > RKISP_TB_STREAM_BUF_MAX)
+			info->buf_max = RKISP_TB_STREAM_BUF_MAX;
+		for (i = 0; i < info->buf_max; i++)
+			info->buf[i].dma_addr = ispdev->resmem_addr + i * info->frame_size;
 	}
 	q->ops->start_streaming(q, 1);
 }
 
 void rkisp_unregister_stream_vdev(struct rkisp_stream *stream)
 {
+	tasklet_kill(&stream->buf_done_tasklet);
 	media_entity_cleanup(&stream->vnode.vdev.entity);
 	video_unregister_device(&stream->vnode.vdev);
 }
@@ -1883,6 +1961,11 @@ int rkisp_register_stream_vdev(struct rkisp_stream *stream)
 		sink, 0, stream->linked);
 	if (ret < 0)
 		goto unreg;
+	INIT_LIST_HEAD(&stream->buf_done_list);
+	tasklet_init(&stream->buf_done_tasklet,
+		     rkisp_buf_done_task,
+		     (unsigned long)stream);
+	tasklet_disable(&stream->buf_done_tasklet);
 	return 0;
 unreg:
 	video_unregister_device(vdev);

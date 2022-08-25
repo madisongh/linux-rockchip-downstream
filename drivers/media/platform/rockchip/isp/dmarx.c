@@ -377,8 +377,13 @@ static void update_rawrd(struct rkisp_stream *stream)
 		val += stream->curr_buf->buff_addr[RKISP_PLANE_Y];
 		rkisp_write(dev, stream->config->mi.y_base_ad_init, val, false);
 		if (dev->hw_dev->is_unite) {
-			val += (stream->out_fmt.width / 2 - RKMOUDLE_UNITE_EXTEND_PIXEL) *
-				fmt->bpp[0] / 8;
+			u32 offs = stream->out_fmt.width / 2 - RKMOUDLE_UNITE_EXTEND_PIXEL;
+
+			if (stream->memory)
+				offs *= DIV_ROUND_UP(fmt->bpp[0], 8);
+			else
+				offs = offs * fmt->bpp[0] / 8;
+			val += offs;
 			rkisp_next_write(dev, stream->config->mi.y_base_ad_init, val, false);
 		}
 		stream->frame_end = false;
@@ -549,6 +554,26 @@ static void rkisp_buf_queue(struct vb2_buffer *vb)
 
 	memset(ispbuf->buff_addr, 0, sizeof(ispbuf->buff_addr));
 	for (i = 0; i < isp_fmt->mplanes; i++) {
+		void *vaddr = vb2_plane_vaddr(vb, i);
+
+		if (vaddr && i == 0 &&
+		    stream->ispdev->isp_ver == ISP_V20 &&
+		    stream->ispdev->rd_mode == HDR_RDBK_FRAME1 &&
+		    RKMODULE_EXTEND_LINE >= 8 &&
+		    isp_fmt->fmt_type == FMT_BAYER &&
+		    stream->id == RKISP_STREAM_RAWRD2) {
+			u32 line = pixm->plane_fmt[0].bytesperline;
+			u32 val = RKMODULE_EXTEND_LINE;
+
+			vaddr += line * (pixm->height - 2);
+			while (val) {
+				memcpy(vaddr + line * val, vaddr, line * 2);
+				val -= 2;
+			}
+			if (vb->vb2_queue->mem_ops->prepare)
+				vb->vb2_queue->mem_ops->prepare(vb->planes[0].mem_priv);
+		}
+
 		if (stream->ispdev->hw_dev->is_dma_sg_ops) {
 			sgt = vb2_dma_sg_plane_desc(vb, i);
 			ispbuf->buff_addr[i] = sg_dma_address(sgt->sgl);
@@ -793,6 +818,9 @@ static const struct v4l2_file_operations rkisp_fops = {
 	.unlocked_ioctl = video_ioctl2,
 	.poll = vb2_fop_poll,
 	.mmap = vb2_fop_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = video_ioctl2,
+#endif
 };
 
 static int rkisp_try_fmt_vid_out_mplane(struct file *file, void *fh,

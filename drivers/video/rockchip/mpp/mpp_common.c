@@ -75,6 +75,7 @@ const char *mpp_device_name[MPP_DEVICE_BUTT] = {
 	[MPP_DEVICE_RKVENC]		= "RKVENC",
 	[MPP_DEVICE_VEPU1]		= "VEPU1",
 	[MPP_DEVICE_VEPU2]		= "VEPU2",
+	[MPP_DEVICE_VEPU2_JPEG]		= "VEPU2",
 	[MPP_DEVICE_VEPU22]		= "VEPU22",
 	[MPP_DEVICE_IEP2]		= "IEP2",
 };
@@ -817,6 +818,7 @@ again:
 	if (task) {
 		struct mpp_dev *task_mpp = mpp_get_task_used_device(task, task->session);
 
+		atomic_inc(&task_mpp->task_count);
 		mpp_taskqueue_pending_to_run(queue, task);
 		set_bit(TASK_STATE_RUNNING, &task->state);
 		if (mpp_task_run(task_mpp, task))
@@ -998,6 +1000,8 @@ static void mpp_attach_workqueue(struct mpp_dev *mpp,
 
 	set_bit(core_id, &queue->core_idle);
 	list_add_tail(&mpp->queue_link, &queue->dev_list);
+	if (queue->core_id_max < (u32)core_id)
+		queue->core_id_max = (u32)core_id;
 
 	mpp->core_id = core_id;
 	mpp->queue = queue;
@@ -1022,7 +1026,7 @@ static void mpp_detach_workqueue(struct mpp_dev *mpp)
 		queue->cores[mpp->core_id] = NULL;
 		queue->core_count--;
 
-		clear_bit(queue->core_count, &queue->core_idle);
+		clear_bit(mpp->core_id, &queue->core_idle);
 		list_del_init(&mpp->queue_link);
 
 		mpp->queue = NULL;
@@ -1520,8 +1524,6 @@ static void mpp_msgs_trigger(struct list_head *msgs_list)
 
 		if (test_bit(TASK_STATE_ABORT, &task->state))
 			pr_info("try to trigger abort task %d\n", task->task_id);
-
-		atomic_inc(&mpp->task_count);
 
 		set_bit(TASK_STATE_PENDING, &task->state);
 		list_add_tail(&task->queue_link, &queue->pending_list);

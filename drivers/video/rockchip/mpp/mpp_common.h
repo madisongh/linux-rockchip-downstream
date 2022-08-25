@@ -62,6 +62,7 @@ enum MPP_DEVICE_TYPE {
 	MPP_DEVICE_RKVENC	= 16, /* 0x00010000 */
 	MPP_DEVICE_VEPU1	= 17, /* 0x00020000 */
 	MPP_DEVICE_VEPU2	= 18, /* 0x00040000 */
+	MPP_DEVICE_VEPU2_JPEG	= 19, /* 0x00080000 */
 	MPP_DEVICE_VEPU22	= 24, /* 0x01000000 */
 
 	MPP_DEVICE_IEP2		= 28, /* 0x10000000 */
@@ -244,6 +245,7 @@ struct mpp_hw_info {
 	u32 reg_end;
 	/* register of enable hardware */
 	int reg_en;
+	void *link_info;
 };
 
 struct mpp_trans_info {
@@ -500,6 +502,7 @@ struct mpp_taskqueue {
 	atomic_t reset_request;
 	struct mpp_dev *cores[MPP_MAX_CORE_NUM];
 	unsigned long core_idle;
+	u32 core_id_max;
 	u32 core_count;
 };
 

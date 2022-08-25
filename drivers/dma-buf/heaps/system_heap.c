@@ -248,8 +248,7 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 }
 
 static int system_heap_sgl_sync_range(struct device *dev,
-				      struct scatterlist *sgl,
-				      unsigned int nents,
+				      struct sg_table *sgt,
 				      unsigned int offset,
 				      unsigned int length,
 				      enum dma_data_direction dir,
@@ -260,10 +259,10 @@ static int system_heap_sgl_sync_range(struct device *dev,
 	dma_addr_t sg_dma_addr;
 	int i;
 
-	for_each_sg(sgl, sg, nents, i) {
+	for_each_sgtable_sg(sgt, sg, i) {
 		unsigned int sg_offset, sg_left, size = 0;
 
-		sg_dma_addr = sg_dma_address(sg);
+		sg_dma_addr = sg_phys(sg);
 
 		len += sg->length;
 		if (len <= offset)
@@ -297,8 +296,9 @@ system_heap_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 					     unsigned int len)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a;
-	int ret = 0;
+	struct dma_heap *heap = buffer->heap;
+	struct sg_table *table = &buffer->sg_table;
+	int ret;
 
 	if (direction == DMA_TO_DEVICE)
 		return 0;
@@ -307,29 +307,13 @@ system_heap_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 	if (buffer->vmap_cnt)
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
-	if (!buffer->uncached)
-		goto unlock;
-
-	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->mapped)
-			continue;
-
-		ret = system_heap_sgl_sync_range(a->dev, a->table->sgl,
-						 a->table->nents,
-						 offset, len,
-						 direction, true);
+	if (buffer->uncached) {
+		mutex_unlock(&buffer->lock);
+		return 0;
 	}
-	if (list_empty(&buffer->attachments)) {
-		struct dma_heap *heap = buffer->heap;
-		struct sg_table *table = &buffer->sg_table;
 
-		ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap),
-						 table->sgl,
-						 table->nents,
-						 offset, len,
-						 direction, true);
-	}
-unlock:
+	ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap), table,
+					 offset, len, direction, true);
 	mutex_unlock(&buffer->lock);
 
 	return ret;
@@ -342,36 +326,21 @@ system_heap_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 					   unsigned int len)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
-	struct dma_heap_attachment *a;
-	int ret = 0;
+	struct dma_heap *heap = buffer->heap;
+	struct sg_table *table = &buffer->sg_table;
+	int ret;
 
 	mutex_lock(&buffer->lock);
 	if (buffer->vmap_cnt)
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
-	if (!buffer->uncached)
-		goto unlock;
-
-	list_for_each_entry(a, &buffer->attachments, list) {
-		if (!a->mapped)
-			continue;
-
-		ret = system_heap_sgl_sync_range(a->dev, a->table->sgl,
-						 a->table->nents,
-						 offset, len,
-						 direction, false);
+	if (buffer->uncached) {
+		mutex_unlock(&buffer->lock);
+		return 0;
 	}
-	if (list_empty(&buffer->attachments)) {
-		struct dma_heap *heap = buffer->heap;
-		struct sg_table *table = &buffer->sg_table;
 
-		ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap),
-						 table->sgl,
-						 table->nents,
-						 offset, len,
-						 direction, false);
-	}
-unlock:
+	ret = system_heap_sgl_sync_range(dma_heap_get_dev(heap), table,
+					 offset, len, direction, false);
 	mutex_unlock(&buffer->lock);
 
 	return ret;
@@ -501,7 +470,7 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 			reason = DF_UNDER_PRESSURE; // On failure, just free
 
 	table = &buffer->sg_table;
-	for_each_sg(table->sgl, sg, table->nents, i) {
+	for_each_sgtable_sg(table, sg, i) {
 		struct page *page = sg_page(sg);
 
 		if (reason == DF_UNDER_PRESSURE) {

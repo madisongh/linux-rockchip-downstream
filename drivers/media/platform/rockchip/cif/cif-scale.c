@@ -429,14 +429,12 @@ static int rkcif_scale_fh_open(struct file *file)
 	if (ret < 0)
 		v4l2_err(&cifdev->v4l2_dev, "Failed to get runtime pm, %d\n",
 			 ret);
-	
-	if(!cifdev->is_yuv_camera) {
-		ret = v4l2_fh_open(file);
-		if (!ret) {
-			ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
-			if (ret < 0)
-				vb2_fop_release(file);
-		}
+
+	ret = v4l2_fh_open(file);
+	if (!ret) {
+		ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
+		if (ret < 0)
+			vb2_fop_release(file);
 	}
 
 	return ret;
@@ -449,13 +447,11 @@ static int rkcif_scale_fop_release(struct file *file)
 	struct rkcif_scale_vdev *scale_vdev = to_rkcif_scale_vdev(vnode);
 	struct rkcif_device *cifdev = scale_vdev->cifdev;
 	int ret;
-	
 
-	if(!cifdev->is_yuv_camera) {
-		ret = vb2_fop_release(file);
-		if (!ret)
-			v4l2_pipeline_pm_put(&vnode->vdev.entity);
-	}
+	ret = vb2_fop_release(file);
+	if (!ret)
+		v4l2_pipeline_pm_put(&vnode->vdev.entity);
+
 	pm_runtime_put_sync(cifdev->dev);
 	return ret;
 }
@@ -1052,7 +1048,7 @@ void rkcif_irq_handle_scale(struct rkcif_device *cif_dev, unsigned int intstat_g
 		rkcif_scale_update_stream(scale_vdev, ch);
 		stream = scale_vdev->stream;
 		if (stream->to_en_dma)
-			rkcif_enable_dma_capture(stream);
+			rkcif_enable_dma_capture(stream, false);
 	}
 }
 

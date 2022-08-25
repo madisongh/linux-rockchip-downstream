@@ -402,7 +402,7 @@ static int rkisp_create_links(struct rkisp_device *dev)
 	return ret;
 }
 
-static int _set_pipeline_default_fmt(struct rkisp_device *dev)
+static int _set_pipeline_default_fmt(struct rkisp_device *dev, bool is_init)
 {
 	struct v4l2_subdev *isp;
 	struct v4l2_subdev_format fmt;
@@ -415,7 +415,8 @@ static int _set_pipeline_default_fmt(struct rkisp_device *dev)
 
 	if (dev->active_sensor) {
 		fmt = dev->active_sensor->fmt[0];
-		if (fmt.format.code == dev->isp_sdev.in_frm.code &&
+		if (!is_init &&
+		    fmt.format.code == dev->isp_sdev.in_frm.code &&
 		    fmt.format.width == dev->isp_sdev.in_frm.width &&
 		    fmt.format.height == dev->isp_sdev.in_frm.height)
 			return 0;
@@ -546,7 +547,7 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 		dev->is_hw_link = true;
 	}
 
-	ret = _set_pipeline_default_fmt(dev);
+	ret = _set_pipeline_default_fmt(dev, true);
 	if (ret < 0)
 		goto unlock;
 
@@ -800,10 +801,11 @@ static int rkisp_plat_probe(struct platform_device *pdev)
 	struct rkisp_device *isp_dev;
 	int i, ret, mult = 1;
 
-	sprintf(rkisp_version, "v%02x.%02x.%02x",
-		RKISP_DRIVER_VERSION >> 16,
-		(RKISP_DRIVER_VERSION & 0xff00) >> 8,
-		RKISP_DRIVER_VERSION & 0x00ff);
+	snprintf(rkisp_version, sizeof(rkisp_version),
+		 "v%02x.%02x.%02x",
+		 RKISP_DRIVER_VERSION >> 16,
+		 (RKISP_DRIVER_VERSION & 0xff00) >> 8,
+		 RKISP_DRIVER_VERSION & 0x00ff);
 
 	dev_info(dev, "rkisp driver version: %s\n", rkisp_version);
 
@@ -827,12 +829,13 @@ static int rkisp_plat_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	sprintf(isp_dev->media_dev.model, "%s%d",
-		DRIVER_NAME, isp_dev->dev_id);
+	snprintf(isp_dev->media_dev.model, sizeof(isp_dev->media_dev.model),
+		 "%s%d", DRIVER_NAME, isp_dev->dev_id);
 	if (!isp_dev->hw_dev->is_unite)
 		strscpy(isp_dev->name, dev_name(dev), sizeof(isp_dev->name));
 	else
-		strscpy(isp_dev->name, "rkisp-unite", sizeof(isp_dev->name));
+		snprintf(isp_dev->name, sizeof(isp_dev->name),
+			 "%s%d", "rkisp-unite", isp_dev->dev_id);
 	strscpy(isp_dev->media_dev.driver_name, isp_dev->name,
 		sizeof(isp_dev->media_dev.driver_name));
 
@@ -916,7 +919,10 @@ static int rkisp_plat_remove(struct platform_device *pdev)
 
 	rkisp_proc_cleanup(isp_dev);
 	media_device_unregister(&isp_dev->media_dev);
+	v4l2_async_notifier_unregister(&isp_dev->notifier);
+	v4l2_async_notifier_cleanup(&isp_dev->notifier);
 	v4l2_device_unregister(&isp_dev->v4l2_dev);
+	v4l2_ctrl_handler_free(&isp_dev->ctrl_handler);
 	rkisp_unregister_luma_vdev(&isp_dev->luma_vdev);
 	rkisp_unregister_params_vdev(&isp_dev->params_vdev);
 	rkisp_unregister_stats_vdev(&isp_dev->stats_vdev);
@@ -948,7 +954,7 @@ static int __maybe_unused rkisp_runtime_resume(struct device *dev)
 	/* power on to config default format from sensor */
 	if (isp_dev->isp_inp & (INP_CSI | INP_DVP | INP_LVDS | INP_CIF) &&
 	    rkisp_update_sensor_info(isp_dev) >= 0)
-		_set_pipeline_default_fmt(isp_dev);
+		_set_pipeline_default_fmt(isp_dev, false);
 
 	isp_dev->cap_dev.wait_line = rkisp_wait_line;
 	isp_dev->cap_dev.wrap_line = rkisp_wrap_line;
@@ -996,3 +1002,4 @@ struct platform_driver rkisp_plat_drv = {
 MODULE_AUTHOR("Rockchip Camera/ISP team");
 MODULE_DESCRIPTION("Rockchip ISP platform driver");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
