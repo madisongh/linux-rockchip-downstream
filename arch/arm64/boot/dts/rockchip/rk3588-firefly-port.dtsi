@@ -16,8 +16,6 @@
 			linux,default-trigger = "ir-power-click";
 			default-state = "on";
 			gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&led_power>;
 		};
 
 		user_led: user {

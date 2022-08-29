@@ -22,10 +22,13 @@
 };
 
 /* led */
+&firefly_leds{
+	pinctrl-names = "default";
+	pinctrl-0 =<&leds_gpio>;
+};
+
 &power_led{
 	gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&led_power>;
 };
 
 &user_led{
@@ -361,7 +364,8 @@
 	};
 
 	leds {
-		led_power: led-power {
+		leds_gpio: leds-gpio {
+			/* led_power */
 			rockchip,pins = <1 11 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
  	};
