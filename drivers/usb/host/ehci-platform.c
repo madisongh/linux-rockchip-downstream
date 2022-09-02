@@ -416,6 +416,9 @@ static int ehci_platform_probe(struct platform_device *dev)
 
 	device_wakeup_enable(hcd->self.controller);
 	device_enable_async_suspend(hcd->self.controller);
+	device_init_wakeup(hcd->self.controller, true);
+	device_init_wakeup(&hcd->self.root_hub->dev, true);
+
 	platform_set_drvdata(dev, hcd);
 
 	if (priv->quirk_poll)
@@ -489,8 +492,11 @@ static int __maybe_unused ehci_platform_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	if (pdata->power_suspend)
+	if (pdata->power_suspend && !do_wakeup)
 		pdata->power_suspend(pdev);
+
+	if (do_wakeup)
+		enable_irq_wake(hcd->irq);
 
 	return ret;
 }
@@ -502,8 +508,12 @@ static int __maybe_unused ehci_platform_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct ehci_platform_priv *priv = hcd_to_ehci_priv(hcd);
 	struct device *companion_dev;
+	bool do_wakeup = device_may_wakeup(dev);
 
-	if (pdata->power_on) {
+	if (do_wakeup)
+		disable_irq_wake(hcd->irq);
+
+	if (pdata->power_on && !do_wakeup) {
 		int err = pdata->power_on(pdev);
 		if (err < 0)
 			return err;
