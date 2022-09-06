@@ -88,14 +88,13 @@
 };
 
 &firefly_leds{
-	
+	pinctrl-names = "default";
+	pinctrl-0 =<&leds_gpio>;
 	power_led_ext: power_ext {   			/* on ext board */
 		label = ":power-ext"; //blue led 
 		linux,default-trigger = "ir-power-ext-click";
 		default-state = "on";
 		gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&led_power_ext>;
 	};
 	
 
@@ -104,8 +103,6 @@
 		linux,default-trigger = "ir-user-ext-click";
 		default-state = "off";
 		gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&led_user_ext>;
 	};
 };
 
@@ -116,14 +113,10 @@
 /* Led */
 &power_led{
        gpios = <&gpio2 RK_PC3 GPIO_ACTIVE_HIGH>;
-       pinctrl-names = "default";
-       pinctrl-0 = <&led_power>;
 };
 
 &user_led{
        gpios = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;
-       pinctrl-names = "default";
-       pinctrl-0 = <&led_user>;
 };
 
 /* tf-card */
@@ -555,17 +548,16 @@
 	};
 
 	leds {
-		led_power: led-power {
-			rockchip,pins = <2 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-		led_user: led-user{
-			rockchip,pins = <4 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-		led_power_ext: led-power-ext {
-			rockchip,pins = <4 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-		led_user_ext: led-user-ext {
-			rockchip,pins = <3 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>;
+		leds_gpio: leds-gpio {
+			rockchip,pins =
+					/* led_power */
+					<2 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>,
+					/* led_user */
+					<4 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>,
+					/* led_power_ext */
+					<4 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>,
+					/* led_user_ext */
+					<3 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
  	};
 

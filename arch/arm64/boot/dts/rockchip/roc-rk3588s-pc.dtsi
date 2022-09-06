@@ -14,24 +14,20 @@
 	};
 
 	firefly_leds: leds {
+		pinctrl-names = "default";
+		pinctrl-0 =<&leds_gpio>;
 		power_led: power {
 			gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;//blue led
-			pinctrl-names = "default";
-			pinctrl-0 = <&led_power>;
 		};
 
 		user_led: user {
 			gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_HIGH>;//red led
-			pinctrl-names = "default";
-			pinctrl-0 = <&led_user>;
 		};
 
 		user1_led: user1 {
 			label = ":user1"; 
 			default-state = "off";
 			gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_HIGH>;//green led
-			pinctrl-names = "default";
-			pinctrl-0 = <&led_user1>;
 		};
 	};
 
@@ -386,14 +382,14 @@
 
 &pinctrl {
 	leds {
-		led_user: led-user {
-			rockchip,pins = <3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-		led_power: led-power {
-			rockchip,pins = <1 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-		led_user1: led-user1 {
-			rockchip,pins = <3 RK_PC0 RK_FUNC_GPIO &pcfg_pull_none>;
+		leds_gpio: leds-gpio {
+			rockchip,pins =
+				/* led_user */
+				<3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>,
+				/* led_power */
+				<1 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>,
+				/* led_user1 */
+				<3 RK_PC0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
@@ -444,6 +440,7 @@
 &avcc_1v8_s0{
        regulator-state-mem {
                regulator-on-in-suspend;
+			   regulator-suspend-microvolt = <1800000>;
        };
 };
 
@@ -454,10 +451,32 @@
        };
 };
 
+// for usb wakeup when deep sleep
+&avdd_0v75_s0{
+		regulator-state-mem {
+			regulator-on-in-suspend;
+			regulator-suspend-microvolt = <750000>;
+		};
+};
+
+&vcc_3v3_s0{
+		regulator-state-mem {
+			regulator-on-in-suspend;
+			regulator-suspend-microvolt = <3300000>;
+		};
+};
+
 &rockchip_suspend{
-       rockchip,sleep-mode-config = <
-         (0
-         | RKPM_SLP_ARMOFF_DDRPD
-         )
-       >;
+	rockchip,sleep-debug-en = <0>;
+	rockchip,sleep-mode-config = <
+		(0
+		| RKPM_SLP_ARMOFF_DDRPD
+		)
+	>;
+	rockchip,wakeup-config = <
+		(0
+		| RKPM_GPIO_WKUP_EN
+		| RKPM_USB_WKUP_EN
+		)
+	>;
 };
