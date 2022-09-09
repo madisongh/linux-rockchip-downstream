@@ -1833,6 +1833,8 @@ static int rkvdec2_soft_ccu_enqueue(struct mpp_dev *mpp, struct mpp_task *mpp_ta
 	mpp_iommu_flush_tlb(mpp->iommu_info);
 	/* set registers for hardware */
 	reg_en = mpp_task->hw_info->reg_en;
+	task->reg[13] |= BIT(1);
+	task->reg[32] = 0x3ffffff;
 	for (i = 0; i < task->w_req_cnt; i++) {
 		int s, e;
 		struct mpp_request *req = &task->w_reqs[i];
@@ -1944,9 +1946,8 @@ get_task:
 		mutex_lock(&queue->pending_lock);
 		list_del_init(&mpp_task->queue_link);
 
-		kref_get(&mpp_task->ref);
-		set_bit(TASK_STATE_ABORT_READY, &mpp_task->state);
-		set_bit(TASK_STATE_PROC_DONE, &mpp_task->state);
+		//set_bit(TASK_STATE_ABORT_READY, &mpp_task->state);
+		//set_bit(TASK_STATE_PROC_DONE, &mpp_task->state);
 
 		mutex_unlock(&queue->pending_lock);
 		wake_up(&dec_task->wait);
