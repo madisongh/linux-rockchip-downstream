@@ -191,6 +191,7 @@ struct rga_virt_addr {
 struct rga_internal_buffer {
 	/* DMA buffer */
 	struct rga_dma_buffer *dma_buffer;
+	uint32_t dma_buffer_size;
 
 	/* virtual address */
 	struct rga_virt_addr *virt_addr;
