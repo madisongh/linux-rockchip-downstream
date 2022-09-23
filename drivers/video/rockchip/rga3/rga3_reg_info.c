@@ -914,7 +914,7 @@ static void RGA3_set_reg_wr_info(u8 *base, struct rga3_req *msg)
 		 (s_RGA3_WR_CTRL_SW_WR_FORMAT(wr_interleaved)));
 	reg =
 		((reg & (~m_RGA3_WR_CTRL_SW_WR_FBCE_SPARSE_EN)) |
-		 (s_RGA3_WR_CTRL_SW_WR_FBCE_SPARSE_EN(0)));
+		 (s_RGA3_WR_CTRL_SW_WR_FBCE_SPARSE_EN(1)));
 
 	reg =
 		((reg & (~m_RGA3_WR_CTRL_SW_OUTSTANDING_MAX)) |
@@ -1305,9 +1305,13 @@ void rga_cmd_to_rga3_cmd(struct rga_req *req_rga, struct rga3_req *req)
 		 *     dst => wr
 		 */
 
-		/* enabled by default bot_blend_m1 && bot_alpha_cal_m1 for src channel(win0) */
+		/*
+		 * enabled by default bot_blend_m1 && bot_alpha_cal_m1 for src channel(win0)
+		 * In ABB mode, the number will be fetched according to 16*16, so it needs to
+		 * be enabled top_blend_m1 && top_alpha_cal_m1 for dst channel(wr).
+		 */
 		if (rga_is_alpha_format(req_rga->src.format))
-			req->alpha_mode_1 = 0x0a00;
+			req->alpha_mode_1 = 0x0a0a;
 
 		set_win_info(&req->win0, &req_rga->src);
 
@@ -1331,9 +1335,13 @@ void rga_cmd_to_rga3_cmd(struct rga_req *req_rga, struct rga3_req *req)
 		 *     dst => wr
 		 */
 
-		/* enabled by default top_blend_m1 && top_alpha_cal_m1 for src channel(win1) */
+		/*
+		 * enabled by default top_blend_m1 && top_alpha_cal_m1 for src channel(win1)
+		 * In ABB mode, the number will be fetched according to 16*16, so it needs to
+		 * be enabled bot_blend_m1 && bot_alpha_cal_m1 for src1/dst channel(win0).
+		 */
 		if (rga_is_alpha_format(req_rga->src.format))
-			req->alpha_mode_1 = 0x0a;
+			req->alpha_mode_1 = 0x0a0a;
 
 		if (req_rga->pat.yrgb_addr != 0) {
 			if (req_rga->src.yrgb_addr == req_rga->dst.yrgb_addr) {
