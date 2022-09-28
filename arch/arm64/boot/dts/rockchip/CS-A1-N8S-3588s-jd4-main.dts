@@ -19,7 +19,7 @@
 #include "rk3588-firefly-port.dtsi"
 
 / {
-	model = "Firefly AIO-3588SJD4 HDMI(Linux)";
+	model = "Firefly CS-A1-N8S-3588s-jd4-main HDMI(Linux)";
 	compatible = "rockchip,aio-3588sjd4", "rockchip,rk3588";
 };
 
@@ -37,15 +37,15 @@
 		bootargs = "earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 irqchip.gicv3_pseudo_nmi=0 root=PARTLABEL=rootfs rootfstype=ext4 ro rootwait overlayroot=device:dev=PARTLABEL=userdata,fstype=ext4,mkfs=1 coherent_pool=1m systemd.gpt_auto=0 cgroup_enable=memory swapaccount=1";
 	};
 	firefly_leds: leds {
-		pinctrl-names = "default";
-		pinctrl-0 =<&leds_gpio>;
-		power_led: power {
-			gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;//blue led
-		};
+		// pinctrl-names = "default";
+		// pinctrl-0 =<&leds_gpio>;
+		// power_led: power {
+		// 	gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;//blue led
+		// };
 
-		user_led: user {
-			gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;//red led
-		};
+		// user_led: user {
+		// 	gpios = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;//red led
+		// };
 	};
 
         // vcc_4g_pwren: vcc-4g-pwren-regulator {
@@ -129,32 +129,210 @@
 
 
 / {
-	model = "Firefly AIO-3588SJD4 HDMI(Linux)";
+	model = "Firefly CS-A1-N8S-rk3588s-jd4 HDMI(Linux)";
 	compatible = "rockchip,aio-3588sjd4", "rockchip,rk3588";
+
 
 	leds {
 		compatible = "gpio-leds";
+		status = "okay";
+		/delete-node/ user;
 
-		// HUB20_PWR_EN {
-		// 	//BMC LED
-		// 	gpios = <&gpio0 8 GPIO_ACTIVE_HIGH>;	//GPIO0_B0
-		// 	default-state = "on";
-		// };
+		HUB30_PWR_EN {
+			//BMC LED
+			gpios = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;	//GPIO0_B0
+			default-state = "on";
+		};
 
-		// BMC_LED {
-		// 	//BMC LED
-		// 	gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>;	//GPIO4_C6  PWM1  32*4 + 22 = 128 + 22 = 150
-		// 	default-state = "on";
-		// };
+		HUB30_PWR_RESET {
+				gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;   //GPIO1_D1
+				default-state = "off";
+		};
+
+		NETWORK_SW_PWR_EN {
+				gpios = <&gpio3 RK_PD2 GPIO_ACTIVE_LOW>;   //GPIO3_D2
+				default-state = "on";
+		};
+
+		SW_9310_RESET_H {
+				gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;   //GPIO0_C0
+				default-state = "off";
+		};
+
+
+		//子板的reset脚，写0会reset子板
+		PWR_EN_SUB1 {
+			gpios = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;	///GPIO4_B3
+			default-state = "on";
+		};
+
+		PWR_EN_SUB2 {
+			gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;	//GPIO4_B2
+			default-state = "on";
+		};
+
+		PWR_EN_SUB3 {
+			gpios = <&gpio4 RK_PD1 RK_PD1>;	//GPIO4_D1
+			default-state = "on";
+		};
+
+		PWR_EN_SUB4 {
+			gpios = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;	//GPIO4_D3
+			default-state = "on";
+		};
+
+		PWR_EN_SUB5 {
+			gpios = <&gpio4 RK_PD4 GPIO_ACTIVE_HIGH>;	//GPIO4_D4
+			default-state = "on";
+		};
+
+		PWR_EN_SUB6 {
+			gpios = <&gpio4 RK_PD2 GPIO_ACTIVE_HIGH>;	//GPIO4_D2
+			default-state = "on";
+		};
+
+		PWR_EN_SUB7 {
+			gpios = <&gpio4 RK_PB4 GPIO_ACTIVE_HIGH>;	//GPIO4_B4
+			default-state = "on";
+		};
+
+		PWR_EN_SUB8 {
+			gpios = <&gpio4 RK_PD0 GPIO_ACTIVE_HIGH>;	//GPIO4_D0
+			default-state = "on";
+		};
+
+		////////////////////////RESET////////////////////////////
+
+		RESET_SUB1 {
+			gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;	//GPIO1_C2
+			default-state = "off";
+		};
+
+		RESET_SUB2 {
+			gpios = <&gpio1 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO1_C5
+			default-state = "off";
+		};
+
+		RESET_SUB3 {
+			gpios = <&gpio1 RK_PC7 GPIO_ACTIVE_HIGH>;	//GPIO1_C7
+			default-state = "off";
+		};
+
+		RESET_SUB4 {
+			gpios = <&gpio1 RK_PD4 GPIO_ACTIVE_HIGH>;	//GPIO1_D4
+			default-state = "off";
+		};
+
+		RESET_SUB5 {
+			gpios = <&gpio1 RK_PC3 GPIO_ACTIVE_HIGH>;	//GPIO1_C3
+			default-state = "off";
+		};
+
+		RESET_SUB6 {
+			gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;	//GPIO1_D2
+			default-state = "off";
+		};
+
+		RESET_SUB7 {
+			gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;	///GPIO1_D5
+			default-state = "off";
+		};
+
+		RESET_SUB8 {
+			gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;	//GPIO1_C4
+			default-state = "off";
+		};
+
+
+		SEL_NORMAL_SUB1 {
+			gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_LOW>;	//GPIO1_B3
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB2 {
+			gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;	//GPIO1_B2
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB3 {
+			gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_LOW>;	//GPIO1_A0
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB4 {
+			gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;	//GPIO1_A3
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB5 {
+			gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;	//GPIO1_A1
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB6 {
+			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;	//GPIO1_A2
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB7 {
+			gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_LOW>;	//GPIO1_D3
+			default-state = "on";
+		};
+
+		SEL_NORMAL_SUB8 {
+			gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;	//GPIO1_C6
+			default-state = "on";
+		};
+
 
 		BUZZER {
 			//BMC LED
-			gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO0_C5  PWM1  32*0 + 21 = 0 + 21 = 21
+			gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO0_C5
 			default-state = "off";
 		};
 	};
 };
 
+
+//FAN1 PWM8_M2
+&pwm8 {
+	pinctrl-0 = <&pwm8m2_pins>;
+	status = "okay";
+};
+
+//FAN2 PWM9_M2
+&pwm9 {
+	pinctrl-0 = <&pwm9m2_pins>;
+	status = "okay";
+};
+
+//FAN3 PWM11_IR_M3
+&pwm11 {
+	pinctrl-0 = <&pwm11m3_pins>;
+	status = "okay";
+};
+
+//FAN4 PWM7_IR_M0
+&pwm7 {
+	pinctrl-0 = <&pwm7m0_pins>;
+	status = "okay";
+};
+
+//FAN5 PWM0_M0
+&pwm0 {
+	pinctrl-0 = <&pwm0m0_pins>;
+	status = "okay";
+};
+
+//FAN6 PWM6_M0
+&pwm6 {
+	pinctrl-0 = <&pwm6m0_pins>;
+	status = "okay";
+};
+
+&i2c2 {
+	status = "disabled";
+ };
 
 &power_led {
 	gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
@@ -251,14 +429,25 @@
 
 /* pcie2.0 */
 &combphy0_ps {
-	status = "okay";
+	status = "disabled";
 };
 
-&pcie2x1l2 {
-	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
+&pcie2x1l1 {
+	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	rockchip,skip-scan-in-resume;
-	status = "okay";
+	status = "disabled";
 };
+
+&sata2 {
+	status = "disabled";
+};
+
+
+// &pcie2x1l2 {
+// 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+// 	rockchip,skip-scan-in-resume;
+// 	status = "okay";
+// };
 
 /* usb3.0 */
 &combphy2_psu {
@@ -275,13 +464,13 @@
 };
 
 
-// &vcc5v0_host {
-// 	status = "okay";
-//  	/delete-property/ regulator-boot-on;
-// 	gpio = <&pca9555 PCA_IO0_1 GPIO_ACTIVE_HIGH>;
-// 	/delete-property/ pinctrl-names;
-// 	/delete-property/ pinctrl-0;
-// };
+&vcc5v0_host {
+	status = "okay";
+ 	// /delete-property/ regulator-boot-on;
+	gpio = <&gpio4 RK_PB5 GPIO_ACTIVE_HIGH>;		//GPIO4_B5_d
+	// /delete-property/ pinctrl-names;
+	// /delete-property/ pinctrl-0;
+};
 
 // /* usb2.0 hub */
 // &vcc_hub_reset {
@@ -291,17 +480,19 @@
 // };
 
 
-// /* typec0 */
-// &vbus5v0_typec_pwr_en {
-// 		status = "okay";
-// 		regulator-min-microvolt = <5000000>;
-// 		regulator-max-microvolt = <5000000>;
-// 		gpio = <&pca9555 PCA_IO0_5 GPIO_ACTIVE_HIGH>;
+/* typec0 */
+&vbus5v0_typec_pwr_en {
+	status = "okay";
+	regulator-boot-on;
+	regulator-always-on;
+	regulator-min-microvolt = <5000000>;
+	regulator-max-microvolt = <5000000>;
+	gpios = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;   ///GPIO4_A7
 
-// 		vin-supply = <&vcc5v0_usb>;
-// 		/delete-property/ pinctrl-names;
-// 		/delete-property/ pinctrl-0;
-// };
+	vin-supply = <&vcc5v0_usb>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&vbus5v0_typec_pwr_en_gpio>;
+};
 
 &gmac1{
  	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
@@ -356,7 +547,7 @@
 	pinctrl-0 = <&i2c6m3_xfer>;
 
 	pca9555: gpio@21 {
-               status = "okay";
+               status = "disabled";
                compatible = "nxp,pca9555";
                reg = <0x21>;
                gpio-controller;
@@ -368,7 +559,7 @@
 	usbc0: fusb302@22 {
 		compatible = "fcs,fusb302";
 		reg = <0x22>;
-		interrupt-parent = <&gpio0>;
+		interrupt-parent = <&gpio3>;
 		interrupts = <RK_PC4 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&usbc0_int>;
@@ -433,10 +624,14 @@
 
 };
 
-// &usbdp_phy0 {
-// 	sbu1-dc-gpios = <&pca9555 PCA_IO0_3 GPIO_ACTIVE_HIGH>;
-// 	sbu2-dc-gpios = <&pca9555 PCA_IO0_4 GPIO_ACTIVE_HIGH>;
-// };
+&usbdrd_dwc3_0 {
+	dr_mode = "host";
+};
+
+&usbdp_phy0 {
+	sbu1-dc-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
+	sbu2-dc-gpios = <&gpio4 RK_PD5 GPIO_ACTIVE_HIGH>;
+};
 
 //for dp
 &spdif_tx2 {
@@ -462,11 +657,23 @@
 // };
 
 &pinctrl {
+	vbus5v0-typec {
+		vbus5v0_typec_pwr_en_gpio: vbus5v0-typec-pwr-en-gpio {
+			rockchip,pins = <4 RK_PA7 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	network-reset {
+		SW_9310_RESET_H_PIN: SW-9310-RESET-H-PIN {
+			rockchip,pins = <0 RK_PC0 RK_FUNC_GPIO &pcfg_pull_none>;  //GPIO0_C0
+		};
+	};
+
 	leds {
 		leds_gpio: leds-gpio {
 			rockchip,pins =
 						/* led_user */
-						<1 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>,
+						//<1 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>,
 						/* led_power */
 						<1 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
@@ -486,7 +693,7 @@
 
 	usb-typec {
 		usbc0_int: usbc0-int {
-			rockchip,pins = <0 RK_PC4 RK_FUNC_GPIO &pcfg_pull_up>;
+			rockchip,pins = <3 RK_PC4 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 
 	};
