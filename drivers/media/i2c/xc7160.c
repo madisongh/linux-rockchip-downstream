@@ -905,17 +905,17 @@ static int xc7160_s_power(struct v4l2_subdev *sd, int on)
 			goto unlock_and_return;
 		}
 		
-		if(xc7160->initial_status != true){
-			xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
-			sc8238_global_regs = xc7160->cur_mode->sensor_reg_list;	
-			camera_isp_sensor_initial(xc7160);
-		}
+		// if(xc7160->initial_status != true){
+		// 	xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
+		// 	sc8238_global_regs = xc7160->cur_mode->sensor_reg_list;	
+		// 	camera_isp_sensor_initial(xc7160);
+		// }
 	
-		/* export gpio */
-		if (!IS_ERR(xc7160->reset_gpio))
-			gpiod_export(xc7160->reset_gpio, false);
-		if (!IS_ERR(xc7160->pwdn_gpio))
-			gpiod_export(xc7160->pwdn_gpio, false);
+		// /* export gpio */
+		// if (!IS_ERR(xc7160->reset_gpio))
+		// 	gpiod_export(xc7160->reset_gpio, false);
+		// if (!IS_ERR(xc7160->pwdn_gpio))
+		// 	gpiod_export(xc7160->pwdn_gpio, false);
 	} else {
 		pm_runtime_put(&client->dev);
 		__xc7160_power_off(xc7160);
@@ -942,6 +942,17 @@ static int xc7160_s_stream(struct v4l2_subdev *sd, int on)
 	struct i2c_client *client = xc7160->client;
 	int ret = 0;
 
+	if(xc7160->initial_status != true){
+			xc7160_global_regs = xc7160->cur_mode->isp_reg_list;
+			sc8238_global_regs = xc7160->cur_mode->sensor_reg_list;	
+			camera_isp_sensor_initial(xc7160);
+		}
+	
+	/* export gpio */
+	if (!IS_ERR(xc7160->reset_gpio))
+		gpiod_export(xc7160->reset_gpio, false);
+	if (!IS_ERR(xc7160->pwdn_gpio))
+		gpiod_export(xc7160->pwdn_gpio, false);
 
 	mutex_lock(&xc7160->mutex);
 	on = !!on;
