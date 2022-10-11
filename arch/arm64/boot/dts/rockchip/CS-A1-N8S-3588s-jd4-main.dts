@@ -140,63 +140,81 @@
 
 		HUB30_PWR_EN {
 			//BMC LED
+			label = "HUB30_PWR_EN";
 			gpios = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;	//GPIO0_B0
 			default-state = "on";
 		};
 
 		HUB30_PWR_RESET {
-				gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;   //GPIO1_D1
-				default-state = "off";
+			label = "HUB30_PWR_RESET";
+			gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;   //GPIO1_D1
+			default-state = "on";
 		};
 
 		NETWORK_SW_PWR_EN {
-				gpios = <&gpio3 RK_PD2 GPIO_ACTIVE_LOW>;   //GPIO3_D2
-				default-state = "on";
+			label = "NETWORK_SW_PWR_EN";
+			gpios = <&gpio3 RK_PD2 GPIO_ACTIVE_LOW>;   //GPIO3_D2
+			default-state = "on";
+		};
+
+		NETWORK_INTERNAL_PWR_EN {
+			label = "NETWORK_INTERNAL_PWR_EN";
+			gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_LOW>;   // GPIO3_C1
+			default-state = "on";
 		};
 
 		SW_9310_RESET_H {
-				gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;   //GPIO0_C0
-				default-state = "off";
+			label = "SW_9310_RESET_H";
+			gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;   //GPIO0_C0
+			default-state = "off";
 		};
 
 
 		//子板的reset脚，写0会reset子板
 		PWR_EN_SUB1 {
+			label = "PWR_EN_SUB1";
 			gpios = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;	///GPIO4_B3
 			default-state = "on";
 		};
 
 		PWR_EN_SUB2 {
+			label = "PWR_EN_SUB2";
 			gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;	//GPIO4_B2
 			default-state = "on";
 		};
 
 		PWR_EN_SUB3 {
+			label = "PWR_EN_SUB3";
 			gpios = <&gpio4 RK_PD1 RK_PD1>;	//GPIO4_D1
 			default-state = "on";
 		};
 
 		PWR_EN_SUB4 {
+			label = "PWR_EN_SUB4";
 			gpios = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;	//GPIO4_D3
 			default-state = "on";
 		};
 
 		PWR_EN_SUB5 {
+			label = "PWR_EN_SUB5";
 			gpios = <&gpio4 RK_PD4 GPIO_ACTIVE_HIGH>;	//GPIO4_D4
 			default-state = "on";
 		};
 
 		PWR_EN_SUB6 {
+			label = "PWR_EN_SUB6";
 			gpios = <&gpio4 RK_PD2 GPIO_ACTIVE_HIGH>;	//GPIO4_D2
 			default-state = "on";
 		};
 
 		PWR_EN_SUB7 {
+			label = "PWR_EN_SUB7";
 			gpios = <&gpio4 RK_PB4 GPIO_ACTIVE_HIGH>;	//GPIO4_B4
 			default-state = "on";
 		};
 
 		PWR_EN_SUB8 {
+			label = "PWR_EN_SUB8";
 			gpios = <&gpio4 RK_PD0 GPIO_ACTIVE_HIGH>;	//GPIO4_D0
 			default-state = "on";
 		};
@@ -204,82 +222,98 @@
 		////////////////////////RESET////////////////////////////
 
 		RESET_SUB1 {
+			label = "RESET_SUB1";
 			gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;	//GPIO1_C2
 			default-state = "off";
 		};
 
 		RESET_SUB2 {
+			label = "RESET_SUB2";
 			gpios = <&gpio1 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO1_C5
 			default-state = "off";
 		};
 
 		RESET_SUB3 {
+			label = "RESET_SUB3";
 			gpios = <&gpio1 RK_PC7 GPIO_ACTIVE_HIGH>;	//GPIO1_C7
 			default-state = "off";
 		};
 
 		RESET_SUB4 {
+			label = "RESET_SUB4";
 			gpios = <&gpio1 RK_PD4 GPIO_ACTIVE_HIGH>;	//GPIO1_D4
 			default-state = "off";
 		};
 
 		RESET_SUB5 {
+			label = "RESET_SUB5";
 			gpios = <&gpio1 RK_PC3 GPIO_ACTIVE_HIGH>;	//GPIO1_C3
 			default-state = "off";
 		};
 
 		RESET_SUB6 {
+			label = "RESET_SUB6";
 			gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;	//GPIO1_D2
 			default-state = "off";
 		};
 
 		RESET_SUB7 {
+			label = "RESET_SUB7";
 			gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;	///GPIO1_D5
 			default-state = "off";
 		};
 
 		RESET_SUB8 {
+			label = "RESET_SUB8";
 			gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;	//GPIO1_C4
 			default-state = "off";
 		};
 
 
 		SEL_NORMAL_SUB1 {
+			label = "SEL_NORMAL_SUB1";
 			gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_LOW>;	//GPIO1_B3
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB2 {
+			label = "SEL_NORMAL_SUB2";
 			gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;	//GPIO1_B2
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB3 {
+			label = "SEL_NORMAL_SUB3";
 			gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_LOW>;	//GPIO1_A0
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB4 {
+			label = "SEL_NORMAL_SUB4";
 			gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;	//GPIO1_A3
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB5 {
+			label = "SEL_NORMAL_SUB5";
 			gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;	//GPIO1_A1
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB6 {
+			label = "SEL_NORMAL_SUB6";
 			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;	//GPIO1_A2
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB7 {
+			label = "SEL_NORMAL_SUB7";
 			gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_LOW>;	//GPIO1_D3
 			default-state = "on";
 		};
 
 		SEL_NORMAL_SUB8 {
+			label = "SEL_NORMAL_SUB8";
 			gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;	//GPIO1_C6
 			default-state = "on";
 		};
@@ -287,6 +321,7 @@
 
 		BUZZER {
 			//BMC LED
+			label = "BUZZER";
 			gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO0_C5
 			default-state = "off";
 		};
@@ -435,7 +470,7 @@
 &pcie2x1l1 {
 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	rockchip,skip-scan-in-resume;
-	status = "disabled";
+	status = "okay";
 };
 
 &sata2 {
@@ -546,6 +581,16 @@
    	pinctrl-names = "default";
 	pinctrl-0 = <&i2c6m3_xfer>;
 
+	pc9202: pc9202@3c {
+		status = "okay";
+		compatible = "firefly,pc9202";
+		reg = <0x3c>;
+		wd-en-gpio = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;         //GPIO4_A4
+		pinctrl-names = "default";
+		pinctrl-0 = <&wdt_ctl>;
+	};
+
+
 	pca9555: gpio@21 {
                status = "disabled";
                compatible = "nxp,pca9555";
@@ -582,8 +627,8 @@
 			compatible = "usb-c-connector";
 			label = "USB-C";
 			data-role = "dual";
-			power-role = "dual";
-			try-power-role = "sink";
+			power-role = "source";
+			try-power-role = "source";
 			op-sink-microwatt = <1000000>;
 			sink-pdos =
 				<PDO_FIXED(5000, 1000, PDO_FIXED_USB_COMM)>;
@@ -657,6 +702,14 @@
 // };
 
 &pinctrl {
+
+	watchdog {
+		wdt_ctl: wdt-ctl {
+				rockchip,pins =
+				<4 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;            //GPIO3_D0
+		};
+	};
+
 	vbus5v0-typec {
 		vbus5v0_typec_pwr_en_gpio: vbus5v0-typec-pwr-en-gpio {
 			rockchip,pins = <4 RK_PA7 RK_FUNC_GPIO &pcfg_pull_none>;

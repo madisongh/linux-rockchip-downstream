@@ -28,12 +28,12 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 #include <linux/of_gpio.h>
-#include <linux/wakelock.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
 #include <linux/iio/consumer.h>
+#include <linux/iio/types.h>
 
 #include <linux/blkdev.h>
 
@@ -75,8 +75,8 @@ void disable_wdt(void)
 
 /*-------------------------------------------------------------------------*/
 /* sw2001_write parameter:
- * reg:  
- * data: 
+ * reg:
+ * data:
  */
 int sw2001_write(unsigned char reg, unsigned char *buf, int len)
 {
@@ -91,12 +91,12 @@ int sw2001_write(unsigned char reg, unsigned char *buf, int len)
 	status = i2c_smbus_write_i2c_block_data(the_sw2001->client, reg, len, buf);
 
 	mutex_unlock(&the_sw2001->lock);
-	
-	printk("%s: sw2001_write(0x%x,0x%x)\n", "pc9202", reg, *buf);
+
+	//printk("%s: sw2001_write(0x%x,0x%x)\n", "pc9202", reg, *buf);
 
 	if(status)
 		printk("error.. status=0x%x\n",status);
-		
+
 	if(status>=len) return 0;
 	else return status;
 }
@@ -106,8 +106,8 @@ int sw2001_write(unsigned char reg, unsigned char *buf, int len)
 // description : write data to byte addr(internal register address in device)
 // parameters  :
 //                addr : register address in device
-//                data:  data 
-// return        : 
+//                data:  data
+// return        :
 //               TRUE : success
 //               FALSE : fail
 //*********************************************************************************
@@ -118,8 +118,8 @@ bool iWriteByte(uint8_t addr, uint8_t data)
 }
 
 /* sw2001_read parameter:
- * reg:  
- * data: 
+ * reg:
+ * data:
  */
 int sw2001_read(unsigned char reg, unsigned char *buf, int len)
 {
@@ -132,11 +132,11 @@ int sw2001_read(unsigned char reg, unsigned char *buf, int len)
 	status = i2c_smbus_read_i2c_block_data(the_sw2001->client, reg, len, buf);
 	mutex_unlock(&the_sw2001->lock);
 	printk("%s: sw2001_read(0x%x) return 0x%x\n", "pc9202", reg, status);
-	
-	printk("status=0x%x\n",status);	
-	
+
+	printk("status=0x%x\n",status);
+
 	if(status>=len) return 0;
-	else return status;	
+	else return status;
 }
 EXPORT_SYMBOL(sw2001_read);
 
@@ -145,8 +145,8 @@ EXPORT_SYMBOL(sw2001_read);
 // description :  read data from addr(internal register address in device)
 // parameters  :
 //                  addr : register address in device
-//                  data:  data 
-// return        : 
+//                  data:  data
+// return        :
 //               TRUE : success
 //               FALSE : fail
 //*********************************************************************************
@@ -173,15 +173,15 @@ int wdt_open(struct inode *inode, struct file *filp)
 }
 
 int wdt_release(struct inode *inode, struct file *filp)
-{  
+{
 	return 0;
-}  
+}
 ssize_t wdt_read(struct file *filp, char __user *buf, size_t count,loff_t *f_pos)
 {
 #if 0
 	uint8_t reg_value;
 	iReadByte(SW2001_REG_WDT_CTRL, &reg_value);
-	/* °ÑÊý¾Ý¸´ÖÆµ½Ó¦ÓÃ³ÌÐò¿Õ¼ä */
+	/* æŠŠæ•°æ®å¤åˆ¶åˆ°åº”ç”¨ç¨‹åºç©ºé—´ */
     if (copy_to_user(buf,&reg_value,1))
     {
 		count=-EFAULT;
@@ -193,7 +193,7 @@ ssize_t wdt_read(struct file *filp, char __user *buf, size_t count,loff_t *f_pos
 
 ssize_t wdt_write(struct file *filp, const char __user *buf, size_t count,loff_t *f_pos)
 {
-	/* °ÑÊý¾Ý¸´ÖÆµ½ÄÚºË¿Õ¼ä */
+	/* æŠŠæ•°æ®å¤åˆ¶åˆ°å†…æ ¸ç©ºé—´ */
 	uint8_t len = (int)count;
 	if(len>2)
 	{
@@ -232,7 +232,7 @@ static int pc9202_wdt_probe(struct i2c_client *client,
     //struct device_node *np = client->dev.of_node;
     //struct sw2001 *ts;
 	struct sw2001	*pEnc;
-	uint8_t reg_value; 
+	uint8_t reg_value;
 	struct iio_channel *channel;
 	int raw;
 	int retry_count, ret;
@@ -246,7 +246,7 @@ static int pc9202_wdt_probe(struct i2c_client *client,
         return -ENODEV;
     }
 
-	pEnc = kzalloc(sizeof(struct sw2001), GFP_KERNEL); 
+	pEnc = kzalloc(sizeof(struct sw2001), GFP_KERNEL);
 	if (!pEnc)
 		return -ENOMEM;
 
@@ -254,7 +254,7 @@ static int pc9202_wdt_probe(struct i2c_client *client,
 	pEnc->client = client;
 	i2c_set_clientdata(client,pEnc);
 	the_sw2001 = pEnc;
-	
+
 	for (retry_count = 0; retry_count < 100; retry_count++) {
 	    ret = iReadByte(SW2001_REG_WDT_CTRL, &reg_value);
 	    if(0 != ret) {
@@ -277,9 +277,9 @@ static int pc9202_wdt_probe(struct i2c_client *client,
 		printk("Unable to register wdt character device !\n");
 		goto err;
     }
-	// ´´½¨Àà
+	// åˆ›å»ºç±»
 	cls = class_create(THIS_MODULE, "wdt_crl");
-	// ´´½¨Éè±¸½Úµã
+	// åˆ›å»ºè®¾å¤‡èŠ‚ç‚¹
 	dev = device_create(cls, NULL, MKDEV(major, 0), NULL, "wdt_crl");
 
 	if (of_find_property(client->dev.of_node, "firefly-server-r1", NULL)) {
