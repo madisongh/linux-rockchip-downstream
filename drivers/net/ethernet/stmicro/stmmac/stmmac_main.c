@@ -124,6 +124,35 @@ static void stmmac_exit_fs(struct net_device *dev);
 
 #define STMMAC_COAL_TIMER(x) (jiffies + usecs_to_jiffies(x))
 
+static int phy_rtl8211e_eee_fixup(struct phy_device *phydev)
+{
+	if (0) { // rtl8201
+		printk("hcq :  %s in\n", __func__);
+		phy_write(phydev, 31, 0x0004);
+		mdelay(10);
+		phy_write(phydev, 16, 0x4077);
+		phy_write(phydev, 31, 0x0000);
+		phy_write(phydev, 13, 0x0007);
+		phy_write(phydev, 14, 0x003C);
+		phy_write(phydev, 13, 0x4007);
+		phy_write(phydev, 14, 0x0000);
+		phy_write(phydev, 0, 0x1200);
+	} else { // rtl8211f
+		printk("hcq :  %s in\n", __func__);
+		phy_write(phydev, 31, 0x0000);
+		phy_write(phydev,  0, 0x8000);
+		mdelay(20);
+		phy_write(phydev, 31, 0x0a4b);
+		phy_write(phydev, 17, 0x1110);
+		phy_write(phydev, 31, 0x0000);
+		phy_write(phydev, 13, 0x0007);
+		phy_write(phydev, 14, 0x003c);
+		phy_write(phydev, 13, 0x4007);
+		phy_write(phydev, 14, 0x0000);
+	}
+	return 0;
+}
+
 int stmmac_bus_clks_config(struct stmmac_priv *priv, bool enabled)
 {
 	int ret = 0;
@@ -5237,6 +5266,13 @@ int stmmac_dvr_probe(struct device *device,
 #ifdef CONFIG_DEBUG_FS
 	stmmac_init_fs(ndev);
 #endif
+
+	ret = phy_register_fixup_for_uid(RTL_8211F_CG_PHY_ID, 0xffffffff, phy_rtl8211e_eee_fixup);
+	if (ret)
+		pr_warn("Cannot register PHY board fixup.\n");
+	ret = phy_register_fixup_for_uid(RTL_8211F_VD_CG_PHY_ID, 0xffffffff, phy_rtl8211e_eee_fixup);
+	if (ret)
+		pr_warn("Cannot register PHY board fixup.\n");
 
 	/* Let pm_runtime_put() disable the clocks.
 	 * If CONFIG_PM is not enabled, the clocks will stay powered.
