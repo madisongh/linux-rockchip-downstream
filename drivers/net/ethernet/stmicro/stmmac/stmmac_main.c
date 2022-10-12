@@ -47,7 +47,8 @@
 #include "dwxgmac2.h"
 #include "hwif.h"
 
-#define RTL_8211F_PHY_ID  0x001cc916
+#define RTL_8211F_CG_PHY_ID  0x001cc916
+#define RTL_8211F_VD_CG_PHY_ID  0x001cc878
 
 /* As long as the interface is active, we keep the timestamping counter enabled
  * with fine resolution and binary rollover. This avoid non-monotonic behavior
@@ -5226,7 +5227,10 @@ int stmmac_dvr_probe(struct device *device,
 			goto error_serdes_powerup;
 	}
 
-	ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, 0xffffffff, phy_rtl8211f_led_fixup);
+        ret = phy_register_fixup_for_uid(RTL_8211F_CG_PHY_ID, 0xffffffff, phy_rtl8211f_led_fixup);
+        if (ret)
+                pr_warn("Cannot register 8211f PHY board fixup.\n");
+        ret = phy_register_fixup_for_uid(RTL_8211F_VD_CG_PHY_ID, 0xffffffff, phy_rtl8211f_led_fixup);
 	if (ret)
 	        pr_warn("Cannot register 8211f PHY board fixup.\n");
 
