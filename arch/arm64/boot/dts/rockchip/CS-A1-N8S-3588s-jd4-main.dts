@@ -518,8 +518,6 @@
 /* typec0 */
 &vbus5v0_typec_pwr_en {
 	status = "okay";
-	regulator-boot-on;
-	regulator-always-on;
 	regulator-min-microvolt = <5000000>;
 	regulator-max-microvolt = <5000000>;
 	gpios = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;   ///GPIO4_A7
@@ -627,8 +625,8 @@
 			compatible = "usb-c-connector";
 			label = "USB-C";
 			data-role = "dual";
-			power-role = "source";
-			try-power-role = "source";
+			power-role = "dual";
+			try-power-role = "sink";
 			op-sink-microwatt = <1000000>;
 			sink-pdos =
 				<PDO_FIXED(5000, 1000, PDO_FIXED_USB_COMM)>;
@@ -669,9 +667,9 @@
 
 };
 
-&usbdrd_dwc3_0 {
-	dr_mode = "host";
-};
+// &usbdrd_dwc3_0 {
+// 	dr_mode = "host";
+// };
 
 &usbdp_phy0 {
 	sbu1-dc-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
