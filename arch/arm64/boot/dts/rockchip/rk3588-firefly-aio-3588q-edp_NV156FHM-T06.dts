@@ -11,7 +11,7 @@
 #include "rk3588-firefly-demo.dtsi"
 
 / {
-   	model = "Firefly AIO-3588Q eDP NV156FHM-T06 (Android)";
+   	model = "Firefly AIO-3588Q eDP NV156FHM-T06 (Linux)";
 	compatible = "rockchip,rk3588-firefly-aio-3588q-edp-nv156fhm-t06", "rockchip,rk3588";
 /*
     vcc_edp_power: vcc-edp-power-regulator {

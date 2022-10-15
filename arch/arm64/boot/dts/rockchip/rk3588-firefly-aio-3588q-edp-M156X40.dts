@@ -8,7 +8,7 @@
 #include "rk3588-firefly-demo.dtsi"
 
 / {
-	model = "Firefly AIO-3588Q EDP156(Android)";
+	model = "Firefly AIO-3588Q EDP156(Linux)";
 	compatible = "rockchip,rk3588-firefly-aio-3588q-edp-M156X40", "rockchip,rk3588";
 
 	panel-edp1 {
