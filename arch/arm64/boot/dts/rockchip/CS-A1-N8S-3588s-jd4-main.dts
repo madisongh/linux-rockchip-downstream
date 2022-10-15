@@ -337,42 +337,48 @@
 	};
 };
 
-
-//FAN1 PWM8_M2
-&pwm8 {
-	pinctrl-0 = <&pwm8m2_pins>;
+// FAN_PWM
+&pwm10 {
+	pinctrl-0 = <&pwm10m2_pins>;
 	status = "okay";
 };
 
-//FAN2 PWM9_M2
-&pwm9 {
-	pinctrl-0 = <&pwm9m2_pins>;
-	status = "okay";
-};
 
-//FAN3 PWM11_IR_M3
-&pwm11 {
-	pinctrl-0 = <&pwm11m3_pins>;
-	status = "okay";
-};
+// //FAN1 PWM8_M2
+// &pwm8 {
+// 	pinctrl-0 = <&pwm8m2_pins>;
+// 	status = "okay";
+// };
 
-//FAN4 PWM7_IR_M0
-&pwm7 {
-	pinctrl-0 = <&pwm7m0_pins>;
-	status = "okay";
-};
+// //FAN2 PWM9_M2
+// &pwm9 {
+// 	pinctrl-0 = <&pwm9m2_pins>;
+// 	status = "okay";
+// };
 
-//FAN5 PWM0_M0
-&pwm0 {
-	pinctrl-0 = <&pwm0m0_pins>;
-	status = "okay";
-};
+// //FAN3 PWM11_IR_M3
+// &pwm11 {
+// 	pinctrl-0 = <&pwm11m3_pins>;
+// 	status = "okay";
+// };
 
-//FAN6 PWM6_M0
-&pwm6 {
-	pinctrl-0 = <&pwm6m0_pins>;
-	status = "okay";
-};
+// //FAN4 PWM7_IR_M0
+// &pwm7 {
+// 	pinctrl-0 = <&pwm7m0_pins>;
+// 	status = "okay";
+// };
+
+// //FAN5 PWM0_M0
+// &pwm0 {
+// 	pinctrl-0 = <&pwm0m0_pins>;
+// 	status = "okay";
+// };
+
+// //FAN6 PWM6_M0
+// &pwm6 {
+// 	pinctrl-0 = <&pwm6m0_pins>;
+// 	status = "okay";
+// };
 
 &i2c2 {
 	status = "disabled";
@@ -546,13 +552,14 @@
 
 /* PMIC spi2 */
 &spi2 {
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2m2_cs0 &spi2m2_pins>;
 	num-cs = <1>;
 };
 
 &sdmmc {
-	status = "okay";
+	status = "disabled";
 	vmmc-supply = <&vcc_3v3_sd_s0>;
 };
 
