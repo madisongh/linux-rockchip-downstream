@@ -163,11 +163,11 @@
 			default-state = "on";
 		};
 
-		SW_9310_RESET_H {
-			label = "SW_9310_RESET_H";
-			gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;   //GPIO0_C0
-			default-state = "off";
-		};
+		// SW_9310_RESET_H {
+		// 	label = "SW_9310_RESET_H";
+		// 	gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;   //GPIO0_C0
+		// 	default-state = "off";
+		// };
 
 
 		//子板的reset脚，写0会reset子板
@@ -547,37 +547,37 @@
 	vmmc-supply = <&vcc_3v3_sd_s0>;
 };
 
-// &i2c2 {
-// 	status = "okay";
-// 	pinctrl-names = "default";
-// 	pinctrl-0 = <&i2c2m0_xfer>;
+&i2c2 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2m0_xfer>;
+};
 
-// 	hym8563: hym8563@51 {
-// 		compatible = "haoyu,hym8563";
-// 		reg = <0x51>;
-// 		#clock-cells = <0>;
-// 		clock-frequency = <32768>;
-// 		clock-output-names = "hym8563";
-// 		pinctrl-names = "default";
-// 		pinctrl-0 = <&hym8563_int>;
-// 		interrupt-parent = <&gpio0>;
-// 		interrupts = <RK_PB0 IRQ_TYPE_LEVEL_LOW>;
-// 		wakeup-source;
-// 		status = "okay";
-// 	};
-// };
-
-// &i2c4 {
-// 	status = "okay";
-// 	pinctrl-names = "default";
-// 	pinctrl-0 = <&i2c4m3_xfer>;
-// };
+&i2c4 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4m3_xfer>;
+};
 
 &i2c6 {
 	status = "okay";
 	clock-frequency = <400000>;
    	pinctrl-names = "default";
 	pinctrl-0 = <&i2c6m3_xfer>;
+
+	hym8563: hym8563@51 {
+		compatible = "haoyu,hym8563";
+		reg = <0x51>;
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "hym8563";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hym8563_int>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PB0 IRQ_TYPE_LEVEL_LOW>;
+		wakeup-source;
+		status = "okay";
+	};
 
 	pc9202: pc9202@3c {
 		status = "okay";
