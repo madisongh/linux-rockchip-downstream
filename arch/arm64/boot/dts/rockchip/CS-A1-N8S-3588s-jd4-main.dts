@@ -132,6 +132,15 @@
 	model = "Firefly CS-A1-N8S-rk3588s-jd4 HDMI(Linux)";
 	compatible = "rockchip,aio-3588sjd4", "rockchip,rk3588";
 
+	ds18b20_1 {
+		compatible = "firefly,ds1820";
+		status = "okay";
+		ds1820-dq = <&gpio4 RK_PA6 GPIO_ACTIVE_LOW>; //GPIO4_A6 TEMP_DET_1
+		ds18b20-id = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ds18b20_dp_pin>;
+	};
+
 
 	leds {
 		compatible = "gpio-leds";
@@ -717,6 +726,12 @@
 	network-reset {
 		SW_9310_RESET_H_PIN: SW-9310-RESET-H-PIN {
 			rockchip,pins = <0 RK_PC0 RK_FUNC_GPIO &pcfg_pull_none>;  //GPIO0_C0
+		};
+	};
+
+	ds18b20-dp {
+		ds18b20_dp_pin: ds18b20-dp-pin {
+			rockchip,pins = <4 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;  //GPIO4_A6
 		};
 	};
 
