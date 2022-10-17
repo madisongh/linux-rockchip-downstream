@@ -7,7 +7,7 @@
 /dts-v1/;
 
 #include "roc-rk3588-pc.dtsi"
-#include "roc-rk3588-pc-mipi-H245QBN02.dtsi"
+//#include "roc-rk3588-pc-ext-bp.dtsi"
 
 / {
 	model = "Firefly ROC-RK3588-PC HDMI(Linux)";
