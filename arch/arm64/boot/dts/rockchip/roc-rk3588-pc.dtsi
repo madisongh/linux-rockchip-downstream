@@ -283,6 +283,17 @@
 	status = "okay";
 };
 
+&dp1_in_vp2 {
+       status = "okay";
+};
+
+&dp1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dp1_hpd>;
+	hpd-gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
 &vbus5v0_typec_pwr_en{
 	status = "okay";
 	gpio = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>; 
@@ -402,6 +413,12 @@
 
 /* pinctrl */
 &pinctrl {
+	dp {
+		dp1_hpd: dp1-hpd {
+			rockchip,pins = <4 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	leds {
 		led_power: led-power {
 			rockchip,pins = <2 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>;
