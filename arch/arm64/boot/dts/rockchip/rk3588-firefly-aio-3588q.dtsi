@@ -228,7 +228,7 @@
 	pinctrl-0 = <&spi1m2_cs0 &spi1m2_pins>;
 	num-cs = <1>;
 	max-freq = <50000000>;
-    spidev1: spidev@00{
+    spidev1: spidev@0{
         compatible = "rockchip,spidev";
         status = "okay";
         reg = <0x0>;

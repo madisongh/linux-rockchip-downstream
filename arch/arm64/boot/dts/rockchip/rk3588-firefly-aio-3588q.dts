@@ -12,7 +12,7 @@
 
 
 / {
-	model = "Firefly AIO-3588Q HDMI(Android)";
+	model = "Firefly AIO-3588Q HDMI(Linux)";
 	compatible = "rockchip,rk3588-firefly-aio-3588q", "rockchip,rk3588";
 };
 
