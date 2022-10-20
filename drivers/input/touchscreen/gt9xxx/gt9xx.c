@@ -35,6 +35,7 @@ struct i2c_client * i2c_connect_client = NULL;
 int gtp_pwr_gpio;
 int gtp_rst_gpio;
 int gtp_int_gpio;
+bool firefly_int_type = false;
 struct goodix_ts_data *gts;
 u8 config[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
                 = {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
@@ -1881,6 +1882,13 @@ static s8 gtp_request_io_port(struct goodix_ts_data *ts)
     return ret;
 }
 
+static irqreturn_t goodix_irq_handle_thread(int irq, void *devid)
+{
+    struct goodix_ts_data *ts = devid;
+    queue_work(goodix_wq, &ts->work);
+
+   return IRQ_HANDLED;
+}
 /*******************************************************
 Function:
     Request interrupt.
@@ -1897,8 +1905,14 @@ static s8 gtp_request_irq(struct goodix_ts_data *ts)
 
     GTP_DEBUG_FUNC();
     GTP_DEBUG("INT trigger type:%x", ts->int_trigger_type);
-
-    ret  = request_irq(ts->client->irq, 
+    if(firefly_int_type)
+            ret = request_threaded_irq(ts->client->irq,NULL,
+                    goodix_irq_handle_thread,
+                    irq_table[ts->int_trigger_type]|IRQF_ONESHOT,
+                    ts->client->name,
+                    ts);
+    else
+            ret  = request_irq(ts->client->irq, 
                        goodix_ts_irq_handler,
                        irq_table[ts->int_trigger_type],
                        ts->client->name,
@@ -2453,6 +2467,7 @@ static void gtp_parse_dt(struct device *dev, struct goodix_ts_data *ts)
 	gtp_rst_gpio = of_get_named_gpio(np, "goodix,rst-gpio", 0);
     gtp_pwr_gpio = of_get_named_gpio(np, "goodix,pwr-gpio", 0);
 	
+    firefly_int_type = of_property_read_bool(np, "firefly-int-thread");
 	if (of_property_read_u32(np, "flip-x", &ts->flip_x) < 0)
 		ts->flip_x = 0;
 

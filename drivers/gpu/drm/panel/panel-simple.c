@@ -116,6 +116,7 @@ struct panel_desc {
 		unsigned int unprepare;
 		unsigned int reset;
 		unsigned int init;
+		unsigned int pwr;
 	} delay;
 
 	u32 bus_format;
@@ -143,6 +144,7 @@ struct panel_simple {
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *hpd_gpio;
 
+ 	struct gpio_desc *pwr_gpio;
 	struct drm_display_mode override_mode;
 
 	struct drm_dsc_picture_parameter_set *pps;
@@ -440,6 +442,7 @@ static int panel_simple_disable(struct drm_panel *panel)
 {
 	struct panel_simple *p = to_panel_simple(panel);
 
+	printk("[zyk debug] %s: done\n",__func__);
 	if (!p->enabled)
 		return 0;
 
@@ -465,6 +468,7 @@ static int panel_simple_unprepare(struct drm_panel *panel)
 	gpiod_direction_output(p->reset_gpio, 1);
 	gpiod_direction_output(p->enable_gpio, 0);
 
+	gpiod_direction_output(p->pwr_gpio,0);
 	panel_simple_regulator_disable(p);
 
 	if (p->desc->delay.unprepare)
@@ -516,6 +520,9 @@ static int panel_simple_prepare(struct drm_panel *panel)
 		return err;
 	}
 
+    gpiod_direction_output(p->pwr_gpio,1);
+	if(p->desc->delay.pwr)
+           msleep(p->desc->delay.pwr);
 	gpiod_direction_output(p->enable_gpio, 1);
 
 	delay = p->desc->delay.prepare;
@@ -801,6 +808,15 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 		dev_err(dev, "failed to get power regulator: %d\n", err);
 		return err;
 	}
+
+    panel->pwr_gpio = devm_gpiod_get_optional(dev, "pwr", GPIOD_ASIS);
+	if (IS_ERR(panel->pwr_gpio)) {
+           err = PTR_ERR(panel->pwr_gpio);
+           if (err != -EPROBE_DEFER)
+                   dev_err(dev, "failed to get pwr GPIO: %d\n", err);
+           return err;
+    }
+
 
 	panel->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_ASIS);
 	if (IS_ERR(panel->enable_gpio)) {
@@ -4667,6 +4683,7 @@ static int panel_simple_of_get_desc_data(struct device *dev,
 	of_property_read_u32(np, "unprepare-delay-ms", &desc->delay.unprepare);
 	of_property_read_u32(np, "reset-delay-ms", &desc->delay.reset);
 	of_property_read_u32(np, "init-delay-ms", &desc->delay.init);
+	of_property_read_u32(np, "pwr-delay-ms", &desc->delay.pwr);
 
 	data = of_get_property(np, "panel-init-sequence", &len);
 	if (data) {
