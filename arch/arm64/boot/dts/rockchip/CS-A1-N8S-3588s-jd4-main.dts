@@ -157,7 +157,7 @@
 		HUB30_PWR_RESET {
 			label = "HUB30_PWR_RESET";
 			gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;   //GPIO1_D1
-			default-state = "on";
+			default-state = "off";
 		};
 
 		NETWORK_SW_PWR_EN {
@@ -559,7 +559,6 @@
 
 /* PMIC spi2 */
 &spi2 {
-	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2m2_cs0 &spi2m2_pins>;
 	num-cs = <1>;
