@@ -9,7 +9,11 @@
 #include "rk3588-diff.dtsi"
 
 #define M2_SATA_OR_PCIE 1 /*1 = SATA , 0 = PCIe */
+#define WHICHCHIP 0 /* rk3588 = 0,rk3588m and rk3588j = 1*/
 
+#if WHICHCHIP
+#include "rk3588m.dtsi"   //rk3588m and rk3588j use,if rk3588 close this include
+#endif
 
  / {
 	chosen: chosen {
