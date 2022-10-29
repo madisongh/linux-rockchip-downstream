@@ -486,13 +486,13 @@
 
 /* pcie2.0 */
 &combphy0_ps {
-	status = "disabled";
+	status = "okay";
 };
 
 &pcie2x1l1 {
 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	rockchip,skip-scan-in-resume;
-	status = "okay";
+	status = "disabled";
 };
 
 &sata2 {
@@ -500,11 +500,14 @@
 };
 
 
-// &pcie2x1l2 {
-// 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
-// 	rockchip,skip-scan-in-resume;
-// 	status = "okay";
-// };
+
+//pci
+&pcie2x1l2 {
+	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+	//prsnt-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+	rockchip,skip-scan-in-resume;
+	status = "okay";
+};
 
 /* usb3.0 */
 &combphy2_psu {
