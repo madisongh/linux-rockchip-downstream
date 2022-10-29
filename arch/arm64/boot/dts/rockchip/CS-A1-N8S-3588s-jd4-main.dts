@@ -182,49 +182,49 @@
 		//子板的reset脚，写0会reset子板
 		PWR_EN_SUB1 {
 			label = "PWR_EN_SUB1";
-			gpios = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;	///GPIO4_B3
+			gpios = <&sub_core_pca9555 PCA_IO0_0 GPIO_ACTIVE_HIGH>;	///GPIO4_B3
 			default-state = "on";
 		};
 
 		PWR_EN_SUB2 {
 			label = "PWR_EN_SUB2";
-			gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;	//GPIO4_B2
+			gpios = <&sub_core_pca9555 PCA_IO0_1 GPIO_ACTIVE_HIGH>;	//GPIO4_B2
 			default-state = "on";
 		};
 
 		PWR_EN_SUB3 {
 			label = "PWR_EN_SUB3";
-			gpios = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;	//GPIO4_D1
+			gpios = <&sub_core_pca9555 PCA_IO0_2 GPIO_ACTIVE_HIGH>;	//GPIO4_D1
 			default-state = "on";
 		};
 
 		PWR_EN_SUB4 {
 			label = "PWR_EN_SUB4";
-			gpios = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;	//GPIO4_D3
+			gpios = <&sub_core_pca9555 PCA_IO0_3 GPIO_ACTIVE_HIGH>;	//GPIO4_D3
 			default-state = "on";
 		};
 
 		PWR_EN_SUB5 {
 			label = "PWR_EN_SUB5";
-			gpios = <&gpio4 RK_PD4 GPIO_ACTIVE_HIGH>;	//GPIO4_D4
+			gpios = <&sub_core_pca9555 PCA_IO0_4 GPIO_ACTIVE_HIGH>;	//GPIO4_D4
 			default-state = "on";
 		};
 
 		PWR_EN_SUB6 {
 			label = "PWR_EN_SUB6";
-			gpios = <&gpio4 RK_PD2 GPIO_ACTIVE_HIGH>;	//GPIO4_D2
+			gpios = <&sub_core_pca9555 PCA_IO0_5 GPIO_ACTIVE_HIGH>;	//GPIO4_D2
 			default-state = "on";
 		};
 
 		PWR_EN_SUB7 {
 			label = "PWR_EN_SUB7";
-			gpios = <&gpio4 RK_PB4 GPIO_ACTIVE_HIGH>;	//GPIO4_B4
+			gpios = <&sub_core_pca9555 PCA_IO0_6 GPIO_ACTIVE_HIGH>;	//GPIO4_B4
 			default-state = "on";
 		};
 
 		PWR_EN_SUB8 {
 			label = "PWR_EN_SUB8";
-			gpios = <&gpio4 RK_PD0 GPIO_ACTIVE_HIGH>;	//GPIO4_D0
+			gpios = <&sub_core_pca9555 PCA_IO0_7 GPIO_ACTIVE_HIGH>;	//GPIO4_D0
 			default-state = "on";
 		};
 
@@ -232,100 +232,100 @@
 
 		RESET_SUB1 {
 			label = "RESET_SUB1";
-			gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;	//GPIO1_C2
+			gpios = <&sub_core_pca9555 PCA_IO1_0 GPIO_ACTIVE_HIGH>;	//GPIO1_C2
 			default-state = "off";
 		};
 
 		RESET_SUB2 {
 			label = "RESET_SUB2";
-			gpios = <&gpio1 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO1_C5
+			gpios = <&sub_core_pca9555 PCA_IO1_1 GPIO_ACTIVE_HIGH>;	//GPIO1_C5
 			default-state = "off";
 		};
 
 		RESET_SUB3 {
 			label = "RESET_SUB3";
-			gpios = <&gpio1 RK_PC7 GPIO_ACTIVE_HIGH>;	//GPIO1_C7
+			gpios = <&sub_core_pca9555 PCA_IO1_2 GPIO_ACTIVE_HIGH>;	//GPIO1_C7
 			default-state = "off";
 		};
 
 		RESET_SUB4 {
 			label = "RESET_SUB4";
-			gpios = <&gpio1 RK_PD4 GPIO_ACTIVE_HIGH>;	//GPIO1_D4
+			gpios = <&sub_core_pca9555 PCA_IO1_3 GPIO_ACTIVE_HIGH>;	//GPIO1_D4
 			default-state = "off";
 		};
 
 		RESET_SUB5 {
 			label = "RESET_SUB5";
-			gpios = <&gpio1 RK_PC3 GPIO_ACTIVE_HIGH>;	//GPIO1_C3
+			gpios = <&sub_core_pca9555 PCA_IO1_4 GPIO_ACTIVE_HIGH>;	//GPIO1_C3
 			default-state = "off";
 		};
 
 		RESET_SUB6 {
 			label = "RESET_SUB6";
-			gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;	//GPIO1_D2
+			gpios = <&sub_core_pca9555 PCA_IO1_5 GPIO_ACTIVE_HIGH>;	//GPIO1_D2
 			default-state = "off";
 		};
 
 		RESET_SUB7 {
 			label = "RESET_SUB7";
-			gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;	///GPIO1_D5
+			gpios = <&sub_core_pca9555 PCA_IO1_6 GPIO_ACTIVE_HIGH>;	///GPIO1_D5
 			default-state = "off";
 		};
 
 		RESET_SUB8 {
 			label = "RESET_SUB8";
-			gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;	//GPIO1_C4
+			gpios = <&sub_core_pca9555 PCA_IO1_7 GPIO_ACTIVE_HIGH>;	//GPIO1_C4
 			default-state = "off";
 		};
 
 
-		SEL_NORMAL_SUB1 {
-			label = "SEL_NORMAL_SUB1";
-			gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_LOW>;	//GPIO1_B3
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB1 {
+		// 	label = "SEL_NORMAL_SUB1";
+		// 	gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_LOW>;	//GPIO1_B3
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB2 {
-			label = "SEL_NORMAL_SUB2";
-			gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;	//GPIO1_B2
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB2 {
+		// 	label = "SEL_NORMAL_SUB2";
+		// 	gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;	//GPIO1_B2
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB3 {
-			label = "SEL_NORMAL_SUB3";
-			gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_LOW>;	//GPIO1_A0
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB3 {
+		// 	label = "SEL_NORMAL_SUB3";
+		// 	gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_LOW>;	//GPIO1_A0
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB4 {
-			label = "SEL_NORMAL_SUB4";
-			gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;	//GPIO1_A3
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB4 {
+		// 	label = "SEL_NORMAL_SUB4";
+		// 	gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;	//GPIO1_A3
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB5 {
-			label = "SEL_NORMAL_SUB5";
-			gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;	//GPIO1_A1
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB5 {
+		// 	label = "SEL_NORMAL_SUB5";
+		// 	gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;	//GPIO1_A1
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB6 {
-			label = "SEL_NORMAL_SUB6";
-			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;	//GPIO1_A2
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB6 {
+		// 	label = "SEL_NORMAL_SUB6";
+		// 	gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;	//GPIO1_A2
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB7 {
-			label = "SEL_NORMAL_SUB7";
-			gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_LOW>;	//GPIO1_D3
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB7 {
+		// 	label = "SEL_NORMAL_SUB7";
+		// 	gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_LOW>;	//GPIO1_D3
+		// 	default-state = "on";
+		// };
 
-		SEL_NORMAL_SUB8 {
-			label = "SEL_NORMAL_SUB8";
-			gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;	//GPIO1_C6
-			default-state = "on";
-		};
+		// SEL_NORMAL_SUB8 {
+		// 	label = "SEL_NORMAL_SUB8";
+		// 	gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;	//GPIO1_C6
+		// 	default-state = "on";
+		// };
 
 
 		BUZZER {
@@ -579,6 +579,31 @@
 	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c4m3_xfer>;
+};
+
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3m4_xfer>;
+
+	sub_core_pca9555: gpio@20 {
+		status = "okay";
+		compatible = "nxp,pca9555";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-group-num = <250>;
+    };
+};
+
+
+&vccio_sd_s0 {
+    regulator-min-microvolt = <3300000>;
+    regulator-max-microvolt = <3300000>;
+    //regulator-name = "vccio_sd_s0";
+	regulator-name = "vccio_sub_core_pca9555_s0";
 };
 
 
