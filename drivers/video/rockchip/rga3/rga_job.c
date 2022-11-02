@@ -832,8 +832,6 @@ int rga_request_release_signal(struct rga_scheduler_t *scheduler, struct rga_job
 	rga_request_get(request);
 	mutex_unlock(&request_manager->lock);
 
-	rga_job_cleanup(job);
-
 	spin_lock_irqsave(&request->lock, flags);
 
 	if (job->ret < 0) {
@@ -847,6 +845,8 @@ int rga_request_release_signal(struct rga_scheduler_t *scheduler, struct rga_job
 	finished_count = request->finished_task_count;
 
 	spin_unlock_irqrestore(&request->lock, flags);
+
+	rga_job_cleanup(job);
 
 	if ((failed_count + finished_count) >= request->task_count) {
 		spin_lock_irqsave(&request->lock, flags);
@@ -1188,6 +1188,7 @@ static int rga_request_free_cb(int id, void *ptr, void *data)
 
 int rga_request_alloc(uint32_t flags, struct rga_session *session)
 {
+	int new_id;
 	struct rga_pending_request_manager *request_manager;
 	struct rga_request *request;
 
@@ -1218,17 +1219,17 @@ int rga_request_alloc(uint32_t flags, struct rga_session *session)
 	mutex_lock(&request_manager->lock);
 
 	idr_preload(GFP_KERNEL);
-	request->id = idr_alloc(&request_manager->request_idr, request, 1, 0, GFP_KERNEL);
+	new_id = idr_alloc_cyclic(&request_manager->request_idr, request, 1, 0, GFP_NOWAIT);
 	idr_preload_end();
-
-	if (request->id <= 0) {
-		pr_err("alloc request_id failed!\n");
+	if (new_id < 0) {
+		pr_err("request alloc id failed!\n");
 
 		mutex_unlock(&request_manager->lock);
 		kfree(request);
-		return -EFAULT;
+		return new_id;
 	}
 
+	request->id = new_id;
 	request_manager->request_count++;
 
 	mutex_unlock(&request_manager->lock);

@@ -52,6 +52,7 @@ struct rockchip_domain_info {
 	int mem_status_mask;
 	int repair_status_mask;
 	bool keepon_startup;
+	bool always_on;
 	u32 pwr_offset;
 	u32 mem_offset;
 	u32 req_offset;
@@ -633,7 +634,7 @@ static int rockchip_pd_power(struct rockchip_pm_domain *pd, bool power_on)
 		return 0;
 
 	if (!power_on && soc_is_px30s()) {
-		if (genpd->name && !strcmp(genpd->name, "pd_gpu"))
+		if (genpd->name && !strcmp(genpd->name, "gpu"))
 			return 0;
 	}
 
@@ -847,6 +848,26 @@ static void rockchip_pd_qos_init(struct rockchip_pm_domain *pd)
 	}
 }
 
+static int rockchip_pd_add_alwasy_on_flag(struct rockchip_pm_domain *pd)
+{
+	int error;
+
+	if (pd->genpd.flags & GENPD_FLAG_ALWAYS_ON)
+		return 0;
+	pd->genpd.flags |= GENPD_FLAG_ALWAYS_ON;
+	if (!rockchip_pmu_domain_is_on(pd)) {
+		error = rockchip_pd_power(pd, true);
+		if (error) {
+			dev_err(pd->pmu->dev,
+				"failed to power on domain '%s': %d\n",
+				pd->genpd.name, error);
+			return error;
+		}
+	}
+
+	return 0;
+}
+
 static int rockchip_pm_add_one_domain(struct rockchip_pmu *pmu,
 				      struct device_node *node)
 {
@@ -1033,18 +1054,16 @@ static int rockchip_pm_add_one_domain(struct rockchip_pmu *pmu,
 	pd->genpd.detach_dev = rockchip_pd_detach_dev;
 	if (pd_info->active_wakeup)
 		pd->genpd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
+	if (pd_info->always_on) {
+		error = rockchip_pd_add_alwasy_on_flag(pd);
+		if (error)
+			goto err_unprepare_clocks;
+	}
 #ifndef MODULE
 	if (pd_info->keepon_startup) {
-		pd->genpd.flags |= GENPD_FLAG_ALWAYS_ON;
-		if (!rockchip_pmu_domain_is_on(pd)) {
-			error = rockchip_pd_power(pd, true);
-			if (error) {
-				dev_err(pmu->dev,
-					"failed to power on domain '%s': %d\n",
-					node->name, error);
-				goto err_unprepare_clocks;
-			}
-		}
+		error = rockchip_pd_add_alwasy_on_flag(pd);
+		if (error)
+			goto err_unprepare_clocks;
 	}
 #endif
 	rockchip_pd_qos_init(pd);
@@ -1182,28 +1201,6 @@ err_out:
 }
 
 #ifndef MODULE
-static void rockchip_pd_keepon_do_release(struct generic_pm_domain *genpd,
-					  struct rockchip_pm_domain *pd)
-{
-	struct pm_domain_data *pm_data;
-	int enable_count;
-
-	pd->genpd.flags &= (~GENPD_FLAG_ALWAYS_ON);
-	list_for_each_entry(pm_data, &genpd->dev_list, list_node) {
-		if (!atomic_read(&pm_data->dev->power.usage_count)) {
-			enable_count = 0;
-			if (!pm_runtime_enabled(pm_data->dev)) {
-				pm_runtime_enable(pm_data->dev);
-				enable_count = 1;
-			}
-			pm_runtime_get_sync(pm_data->dev);
-			pm_runtime_put_sync(pm_data->dev);
-			if (enable_count)
-				pm_runtime_disable(pm_data->dev);
-		}
-	}
-}
-
 static int __init rockchip_pd_keepon_release(void)
 {
 	struct generic_pm_domain *genpd;
@@ -1217,8 +1214,12 @@ static int __init rockchip_pd_keepon_release(void)
 		genpd = g_pmu->genpd_data.domains[i];
 		if (genpd) {
 			pd = to_rockchip_pd(genpd);
-			if (pd->info->keepon_startup)
-				rockchip_pd_keepon_do_release(genpd, pd);
+			if (pd->info->always_on)
+				continue;
+			if (!pd->info->keepon_startup)
+				continue;
+			genpd->flags &= (~GENPD_FLAG_ALWAYS_ON);
+			queue_work(pm_wq, &genpd->power_off_work);
 		}
 	}
 	return 0;

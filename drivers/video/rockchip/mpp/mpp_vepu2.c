@@ -352,6 +352,7 @@ static int vepu_run(struct mpp_dev *mpp,
 	u32 i;
 	u32 reg_en;
 	struct vepu_task *task = to_vepu_task(mpp_task);
+	u32 timing_en = mpp->srv->timing_en;
 
 	mpp_debug_enter();
 
@@ -372,10 +373,15 @@ static int vepu_run(struct mpp_dev *mpp,
 	}
 	/* init current task */
 	mpp->cur_task = mpp_task;
+
+	mpp_task_run_begin(mpp_task, timing_en, MPP_WORK_TIMEOUT_DELAY);
+
 	/* Last, flush the registers */
 	wmb();
 	mpp_write(mpp, VEPU2_REG_ENC_EN,
 		  task->reg[reg_en] | VEPU2_ENC_START);
+
+	mpp_task_run_end(mpp_task, timing_en);
 
 	mpp_debug_leave();
 
@@ -407,7 +413,7 @@ static int vepu_isr(struct mpp_dev *mpp)
 		dev_err(mpp->dev, "no current task\n");
 		return IRQ_HANDLED;
 	}
-	mpp_time_diff(mpp_task);
+	mpp_time_diff(mpp_task, 0);
 	mpp->cur_task = NULL;
 	task = to_vepu_task(mpp_task);
 	task->irq_status = mpp->irq_status;
@@ -677,6 +683,10 @@ static int vepu_procfs_init(struct mpp_dev *mpp)
 		enc->procfs = NULL;
 		return -EIO;
 	}
+
+	/* for common mpp_dev options */
+	mpp_procfs_create_common(enc->procfs, mpp);
+
 	mpp_procfs_create_u32("aclk", 0644,
 			      enc->procfs, &enc->aclk_info.debug_rate_hz);
 	mpp_procfs_create_u32("session_buffers", 0644,
@@ -695,8 +705,6 @@ static int vepu_procfs_ccu_init(struct mpp_dev *mpp)
 	if (!enc->procfs)
 		goto done;
 
-	mpp_procfs_create_u32("disable_work", 0644,
-			      enc->procfs, &enc->disable_work);
 done:
 	return 0;
 }

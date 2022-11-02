@@ -682,6 +682,15 @@ static int dw_dp_connector_get_modes(struct drm_connector *connector)
 	struct edid *edid;
 	int num_modes = 0;
 
+	if (dp->right && dp->right->next_bridge) {
+		struct drm_bridge *bridge = dp->right->next_bridge;
+
+		if (bridge->ops & DRM_BRIDGE_OP_MODES) {
+			if (!drm_bridge_get_modes(bridge, connector))
+				return 0;
+		}
+	}
+
 	if (dp->next_bridge)
 		num_modes = drm_bridge_get_modes(dp->next_bridge, connector);
 
@@ -2047,9 +2056,8 @@ static int dw_dp_bridge_mode_valid(struct drm_bridge *bridge,
 	return MODE_OK;
 }
 
-static void dw_dp_loader_protect(struct drm_encoder *encoder, bool on)
+static void _dw_dp_loader_protect(struct dw_dp *dp, bool on)
 {
-	struct dw_dp *dp = encoder_to_dp(encoder);
 	struct dw_dp_link *link = &dp->link;
 	struct drm_connector *conn = &dp->connector;
 	struct drm_display_info *di = &conn->display_info;
@@ -2098,6 +2106,17 @@ static void dw_dp_loader_protect(struct drm_encoder *encoder, bool on)
 	}
 }
 
+static int dw_dp_loader_protect(struct drm_encoder *encoder, bool on)
+{
+	struct dw_dp *dp = encoder_to_dp(encoder);
+
+	_dw_dp_loader_protect(dp, on);
+	if (dp->right)
+		_dw_dp_loader_protect(dp->right, on);
+
+	return 0;
+}
+
 static int dw_dp_connector_init(struct dw_dp *dp)
 {
 	struct drm_connector *connector = &dp->connector;
@@ -2106,6 +2125,9 @@ static int dw_dp_connector_init(struct dw_dp *dp)
 	int ret;
 
 	connector->polled = DRM_CONNECTOR_POLL_HPD;
+	if (dp->next_bridge && dp->next_bridge->ops & DRM_BRIDGE_OP_DETECT)
+		connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+				    DRM_CONNECTOR_POLL_DISCONNECT;
 	connector->ycbcr_420_allowed = true;
 
 	ret = drm_connector_init(bridge->dev, connector,

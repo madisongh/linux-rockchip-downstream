@@ -1843,6 +1843,46 @@ config VIDEO_SC132GS
 	  To compile this driver as a module, choose M here: the
 	  module will be called sc132gs.
 
+config VIDEO_SC200AI
+	tristate "SmartSens SC200AI sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC200AI camera.
+
+config VIDEO_SC210IOT
+	tristate "SmartSens SC210IOT sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC210IOT camera.
+
+config VIDEO_SC2232
+	tristate "SmartSens SC2232 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC2232 camera.
+
+config VIDEO_SC2239
+	tristate "SmartSens SC2239 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC2239 camera.
+
 config VIDEO_SC230AI
 	tristate "SmartSens SC230AI sensor support"
 	depends on I2C && VIDEO_V4L2
@@ -1852,6 +1892,16 @@ config VIDEO_SC230AI
 	help
 	  This is a Video4Linux2 sensor driver for the SmartSens
 	  SC230AI camera.
+
+config VIDEO_SC2310
+	tristate "SmartSens SC2310 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC2310 camera.
 
 config VIDEO_SC301IOT
     tristate "SmartSens SC301IOT sensor support"
@@ -1892,6 +1942,36 @@ config VIDEO_SC401AI
 	help
 	  This is a Video4Linux2 sensor driver for the SmartSens
 	  SC401ai camera.
+
+config VIDEO_SC4210
+	tristate "SmartSens SC4210 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC4210 camera.
+
+config VIDEO_SC4238
+	tristate "SmartSens SC4238 sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC4238 camera.
+
+config VIDEO_SC430CS
+	tristate "SmartSens SC430CS sensor support"
+	depends on I2C && VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the SmartSens
+	  SC430CS camera.
 
 config VIDEO_SC4336
 	tristate "SmartSens SC4336 sensor support"

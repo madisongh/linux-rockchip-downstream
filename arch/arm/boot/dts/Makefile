@@ -973,10 +973,21 @@ dtb-$(CONFIG_ARCH_RENESAS) += \
 dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rv1103g-38x38-ipc-v10.dtb \
 	rv1103g-battery-ipc-v10.dtb \
+	rv1103g-battery-ipc-v11.dtb \
 	rv1103g-evb-v10.dtb \
+	rv1103g-evb-v11.dtb \
+	rv1103g-rmsl311-dloc-sl-v10.dtb \
+	rv1103g-scaner-v10.dtb \
 	rv1106g-38x38-ipc-v10.dtb \
 	rv1106g-38x38-ipc-v10-spi-nand.dtb \
+	rv1106g-evb1-mcu-display-v11.dtb \
+	rv1106g-evb1-rgb-display-v11.dtb \
 	rv1106g-evb1-v10.dtb \
+	rv1106g-evb1-v11.dtb \
+	rv1106g-evb1-v11-cvr.dtb \
+	rv1106g-evb1-v11-spi-nand-cvr.dtb \
+	rv1106g-evb1-v11-sii902x-bt11202hdmi.dtb \
+	rv1106g-evb1-v11-sii902x-rgb2hdmi.dtb \
 	rv1106g-evb1-v10-dual-cam.dtb \
 	rv1106g-evb1-v10-facial-gate.dtb \
 	rv1106g-evb1-v10-spi-nand.dtb \
@@ -1030,7 +1041,8 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rk3288-vyasa.dtb \
 	rk3308bs-evb-amic-v11-aarch32.dtb \
 	rk3308bs-evb-dmic-pdm-v11-aarch32.dtb \
-	rk3308bs-evb-mipi-display-v11-aarch32.dtb
+	rk3308bs-evb-mipi-display-v11-aarch32.dtb \
+	rk3308hs-voice-module-board-v10-aarch32.dtb
 dtb-$(CONFIG_ARCH_S3C24XX) += \
 	s3c2416-smdk2416.dtb
 dtb-$(CONFIG_ARCH_S3C64XX) += \
