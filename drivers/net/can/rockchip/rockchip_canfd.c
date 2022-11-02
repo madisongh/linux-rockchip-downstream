@@ -510,13 +510,15 @@ static void rockchip_canfd_tx_err_delay_work(struct work_struct *work)
 		can_get_echo_skb(ndev, 0);
 		netif_wake_queue(ndev);
 	}
+}
+
 /* transmit a CAN message
  * message layout in the sk_buff should be like this:
  * xx xx xx xx         ff         ll 00 11 22 33 44 55 66 77
  * [ can_id ] [flags] [len] [can data (up to 8 bytes]
  */
 static int rockchip_canfd_start_xmit(struct sk_buff *skb,
-				     struct net_device *ndev)
+		struct net_device *ndev)
 {
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
@@ -575,7 +577,7 @@ static int rockchip_canfd_start_xmit(struct sk_buff *skb,
 		rockchip_canfd_write(rcan, CAN_TXFIC, dlc);
 		for (i = 0; i < cf->len; i += 4)
 			rockchip_canfd_write(rcan, CAN_TXDAT0 + i,
-					     *(u32 *)(cf->data + i));
+					*(u32 *)(cf->data + i));
 		rockchip_canfd_write(rcan, CAN_CMD, CAN_TX1_REQ);
 		local_irq_restore(flags);
 		can_put_echo_skb(skb, ndev, 0);
@@ -588,7 +590,7 @@ static int rockchip_canfd_start_xmit(struct sk_buff *skb,
 
 	for (i = 0; i < cf->len; i += 4)
 		rockchip_canfd_write(rcan, CAN_TXDAT0 + i,
-				     *(u32 *)(cf->data + i));
+				*(u32 *)(cf->data + i));
 
 	can_put_echo_skb(skb, ndev, 0);
 	schedule_delayed_work(&rcan->tx_err_work, 1);
