@@ -12,6 +12,18 @@
 	chosen: chosen {
 		bootargs = "earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 irqchip.gicv3_pseudo_nmi=0 root=PARTLABEL=rootfs rootfstype=ext4 ro rootwait overlayroot=device:dev=PARTLABEL=userdata,fstype=ext4,mkfs=1 coherent_pool=1m systemd.gpt_auto=0 cgroup_enable=memory swapaccount=1 net.ifnames=0";
 	};
+	
+	/* "Check-Version" is for compatible with multiple devices. Delete it if you do not need it */
+        check-version {
+                compatible = "check-version";
+                u-boot,dm-pre-reloc;
+                io-channels = <&saradc 5>;
+                version-num = <2>;
+                version-adc-range0 = <0 100>;
+                version-dtb-path0 = "roc-rk3588s-pc-v10.dtb";
+                version-adc-range1 = <1950 2150>;
+                version-dtb-path1 = "roc-rk3588s-pc-v12.dtb";
+        };
 
 	firefly_leds: leds {
 		pinctrl-names = "default";
