@@ -6,5 +6,5 @@
 
 /dts-v1/;
 
-#include "roc-rk3588s-pc-ext-mipi101-M101014-BE45-A1-v10.dtsi"
-#include "roc-rk3588s-pc-v12-diff.dtsi"
+#include "roc-rk3588s-pc-mipi-H245QBN02-v12.dtsi"
+#include "roc-rk3588s-pc-v13-diff.dtsi"

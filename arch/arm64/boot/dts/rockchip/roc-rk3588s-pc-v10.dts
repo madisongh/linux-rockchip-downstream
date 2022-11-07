@@ -9,6 +9,6 @@
 #include "roc-rk3588s-pc-v10.dtsi"
 
 / {
-	model = "Firefly ROC-RK3588S-PC-V10 HDMI(Linux)";
+	model = "Firefly ROC-RK3588S-PC V10 HDMI(Linux)";
 	compatible = "rockchip,roc-rk3588s-pc", "rockchip,rk3588";
 };

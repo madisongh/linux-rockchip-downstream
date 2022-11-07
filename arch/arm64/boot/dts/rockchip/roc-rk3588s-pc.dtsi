@@ -19,11 +19,13 @@
 		dtb-name = "roc-rk3588s-pc";
                 u-boot,dm-pre-reloc;
                 io-channels = <&saradc 5>;
-                version-num = <2>;
+                version-num = <3>;
                 version-adc-range0 = <0 100>;
                 version-dtb-path0 = "v10";
                 version-adc-range1 = <1950 2150>;
                 version-dtb-path1 = "v12";
+                version-adc-range2 = <3950 4150>;
+                version-dtb-path2 = "v13";
 		//status = "disabled";
         };
 

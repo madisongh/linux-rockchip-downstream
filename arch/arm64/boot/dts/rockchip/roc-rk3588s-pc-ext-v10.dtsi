@@ -9,10 +9,7 @@
 #include "roc-rk3588s-pc.dtsi"
 #include "roc-rk3588s-pc-ext.dtsi"
 //#include "rk3588-roc-pc-cam-8ms1m.dtsi"
-
-&fan {
-	pwms = <&pwm11 0 50000 0>;
-};
+#include "roc-rk3588s-pc-v10-diff.dtsi"
 
 &check_version {
 	dtb-name = "roc-rk3588s-pc-ext";

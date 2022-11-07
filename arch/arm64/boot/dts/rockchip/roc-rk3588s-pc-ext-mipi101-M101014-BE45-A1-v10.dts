@@ -8,7 +8,7 @@
 
 #include "roc-rk3588s-pc-ext-mipi101-M101014-BE45-A1-v10.dtsi"
 / {
-	model = "Firefly ROC-RK3588S-PC-V10 EXT MIPI(Linux)";
+	model = "Firefly ROC-RK3588S-PC V10 EXT MIPI(Linux)";
 	compatible = "rockchip,roc-rk3588s-pc", "rockchip,rk3588";
 
 };

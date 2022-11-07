@@ -6,9 +6,9 @@
 
 /dts-v1/;
 
-#include "roc-rk3588s-pc-ext-v10.dtsi"
+#include "roc-rk3588s-pc-mipi-H245QBN02-v13.dtsi"
 
 / {
-	model = "Firefly ROC-RK3588S-PC V10 EXT HDMI(Linux)";
+	model = "Firefly ROC-RK3588S-PC V13 MIPI(2.4)(Linux)";
 	compatible = "rockchip,roc-rk3588s-pc", "rockchip,rk3588";
 };
