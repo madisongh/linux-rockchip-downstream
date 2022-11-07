@@ -415,3 +415,7 @@
 &fan {
 	pwms = <&pwm11 0 50000 0>;
 };
+
+&check_version {
+	dtb-name = "roc-rk3588s-pc-ext-mipi101-M101014-BE45-A1";
+};

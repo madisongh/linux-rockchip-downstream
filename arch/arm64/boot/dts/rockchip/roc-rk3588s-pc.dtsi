@@ -14,15 +14,17 @@
 	};
 	
 	/* "Check-Version" is for compatible with multiple devices. Delete it if you do not need it */
-        check-version {
+        check_version: check-version {
                 compatible = "check-version";
+		dtb-name = "roc-rk3588s-pc";
                 u-boot,dm-pre-reloc;
                 io-channels = <&saradc 5>;
                 version-num = <2>;
                 version-adc-range0 = <0 100>;
-                version-dtb-path0 = "roc-rk3588s-pc-v10.dtb";
+                version-dtb-path0 = "v10";
                 version-adc-range1 = <1950 2150>;
-                version-dtb-path1 = "roc-rk3588s-pc-v12.dtb";
+                version-dtb-path1 = "v12";
+		//status = "disabled";
         };
 
 	firefly_leds: leds {
