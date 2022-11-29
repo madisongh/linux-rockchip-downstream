@@ -149,6 +149,7 @@
 
 &dsi1 {
     status = "okay";
+    firefly-check;
     //rockchip,lane-rate = <1000>;
     dsi1_panel: panel@0 {
         status = "okay";
@@ -175,6 +176,7 @@
         panel-init-sequence = [
             //39 00 04 B9 83 10 2E
             // 15 00 02 CF FF
+	    99 00 02 04 83
             05 78 01 11
             05 32 01 29
             //15 00 02 35 00
@@ -283,7 +285,7 @@
 &route_hdmi0{
     status = "disabled";
 };
-
+/*
 &lcd_rst {
 	status = "okay";
 	gpio = <&gpio1 RK_PA1 GPIO_ACTIVE_HIGH>;
@@ -293,9 +295,10 @@
 	status = "okay";
 	gpio = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
 };
-
+*/
 &dsi0 {
     status = "okay";
+    firefly-check;
     //rockchip,lane-rate = <1000>;
     dsi_panel: panel@0 {
         status = "okay";
@@ -303,8 +306,8 @@
         reg = <0>;
         backlight = <&backlight>;
         
-        //enable-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
-        //reset-gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;
+        enable-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;
 
         enable-delay-ms = <50>;
         prepare-delay-ms = <200>;
@@ -319,9 +322,11 @@
         dsi,format = <MIPI_DSI_FMT_RGB888>;
         dsi,lanes  = <4>;
 
+	//rotation = <90>;
         panel-init-sequence = [
             //39 00 04 B9 83 10 2E
             // 15 00 02 CF FF
+	    99 00 02 04 83
             05 78 01 11
             05 32 01 29
             //15 00 02 35 00

@@ -215,13 +215,15 @@ static int panel_simple_parse_cmd_seq(struct device *dev,
 	return 0;
 }
 
+#define	MIPI_FIREFLY_MIPI_ID_CHECK 0x99
 static int panel_simple_xfer_dsi_cmd_seq(struct panel_simple *panel,
 					 struct panel_cmd_seq *seq)
 {
 	struct device *dev = panel->base.dev;
 	struct mipi_dsi_device *dsi = panel->dsi;
-	unsigned int i;
-	int err;
+	unsigned int i,j;
+	int err,ret;
+	u8 save[3] = {0};
 
 	if (!IS_ENABLED(CONFIG_DRM_MIPI_DSI))
 		return -EINVAL;
@@ -259,6 +261,18 @@ static int panel_simple_xfer_dsi_cmd_seq(struct panel_simple *panel,
 			}
 
 			err = mipi_dsi_picture_parameter_set(dsi, panel->pps);
+			break;
+		case MIPI_FIREFLY_MIPI_ID_CHECK:
+			ret = mipi_dsi_generic_read(dsi,&cmd->payload[0] ,1, save ,cmd->header.payload_length - 1);
+			for(j = 0;j < cmd->header.payload_length - 1; j++){
+				printk("[Firefly]-[%s]-[%d]: ret = %d, read %X = %X\r\n", __FUNCTION__ , __LINE__,ret ,cmd->payload[0], save[j]);
+				if( cmd->payload[j+1] == save[j]) {
+					printk("[Firefly]-[%s]-[%d]: MIPI ID Check Pass!\r\n", __FUNCTION__ , __LINE__);
+				} else {
+					printk("[Firefly]-[%s]-[%d]: Not Found ID = %X MIPI!\r\n", __FUNCTION__ , __LINE__, cmd->payload[j+1]);
+					return -EFIREFLY;
+				}
+			}
 			break;
 		default:
 			return -EINVAL;
@@ -563,8 +577,11 @@ static int panel_simple_prepare(struct drm_panel *panel)
 
 	if (p->desc->init_seq)
 		if (p->dsi)
-			panel_simple_xfer_dsi_cmd_seq(p, p->desc->init_seq);
-
+			err = panel_simple_xfer_dsi_cmd_seq(p, p->desc->init_seq);
+	if(err) {
+		printk("[Firefly]-[%s]-[%d]: Parse cmd Fail!\r\n", __FUNCTION__ , __LINE__);
+		return err;
+	}
 	p->prepared = true;
 
 	return 0;

@@ -177,6 +177,7 @@
 #define PSEC_PER_SEC			1000000000000LL
 
 #define GRF_REG_FIELD(reg, lsb, msb)	(((reg) << 16) | ((lsb) << 8) | (msb))
+#define MIPI_FF_CHECK
 
 enum vid_mode_type {
 	VID_MODE_TYPE_NON_BURST_SYNC_PULSES,
@@ -276,6 +277,9 @@ struct dw_mipi_dsi2 {
 
 	struct gpio_desc *te_gpio;
 	bool user_split_mode;
+#ifdef MIPI_FF_CHECK
+	bool firefly_check;
+#endif
 	struct drm_property *user_split_mode_prop;
 };
 
@@ -837,6 +841,51 @@ static void dw_mipi_dsi2_enable(struct dw_mipi_dsi2 *dsi2)
 		dw_mipi_dsi2_enable(dsi2->slave);
 }
 
+#ifdef MIPI_FF_CHECK
+
+static int ff_dw_mipi_dsi2_encoder_enable(struct dw_mipi_dsi2 *dsi2)
+{
+
+
+	int ret = 0;
+	dw_mipi_dsi2_get_lane_rate(dsi2);
+
+	if (dsi2->dcphy)
+		dw_mipi_dsi2_set_lane_rate(dsi2);
+
+	if (dsi2->slave && dsi2->slave->dcphy)
+		dw_mipi_dsi2_set_lane_rate(dsi2->slave);
+
+	dw_mipi_dsi2_pre_enable(dsi2);
+
+	if (dsi2->panel)
+		ret = drm_panel_prepare(dsi2->panel);
+
+
+	dw_mipi_dsi2_enable(dsi2);
+
+	if (dsi2->panel)
+		drm_panel_enable(dsi2->panel);
+
+
+	return ret;
+	
+}
+
+static void ff_dw_mipi_dsi2_encoder_disable(struct dw_mipi_dsi2 *dsi2)
+{
+	if (dsi2->panel)
+		drm_panel_disable(dsi2->panel);
+
+	if (dsi2->panel)
+		drm_panel_unprepare(dsi2->panel);
+
+	dw_mipi_dsi2_post_disable(dsi2);
+
+}
+
+
+#endif
 static void dw_mipi_dsi2_encoder_enable(struct drm_encoder *encoder)
 {
 	struct dw_mipi_dsi2 *dsi2 = encoder_to_dsi2(encoder);
@@ -1263,6 +1312,15 @@ static int dw_mipi_dsi2_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
+#ifdef MIPI_FF_CHECK
+	if(dsi2->firefly_check) {
+		ret = ff_dw_mipi_dsi2_encoder_enable(dsi2);
+		ff_dw_mipi_dsi2_encoder_disable(dsi2);
+		if(ret)
+			return ret;
+	}
+#endif
+
 	dw_mipi_dsi2_get_dsc_params_from_sink(dsi2, dsi2->panel, dsi2->bridge);
 	encoder->possible_crtcs = rockchip_drm_of_find_possible_crtcs(drm_dev,
 								      of_node);
@@ -1551,7 +1609,9 @@ static int dw_mipi_dsi2_probe(struct platform_device *pdev)
 	dsi2->pdata = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, dsi2);
 	dsi2->user_split_mode = device_property_read_bool(dev, "user-split-mode");
-
+#ifdef MIPI_FF_CHECK
+	dsi2->firefly_check = device_property_read_bool(dev, "firefly-check");
+#endif
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(regs))

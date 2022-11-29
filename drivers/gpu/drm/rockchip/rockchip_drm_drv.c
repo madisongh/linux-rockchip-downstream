@@ -1352,7 +1352,7 @@ static int rockchip_drm_bind(struct device *dev)
 	if (ret)
 		DRM_DEBUG_KMS("No reserved memory region assign to drm\n");
 
-	rockchip_drm_show_logo(drm_dev);
+	//rockchip_drm_show_logo(drm_dev);
 
 	ret = rockchip_drm_fbdev_init(drm_dev);
 	if (ret)
