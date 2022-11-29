@@ -138,7 +138,16 @@
 		ds1820-dq = <&gpio4 RK_PA6 GPIO_ACTIVE_LOW>; //GPIO4_A6 TEMP_DET_1
 		ds18b20-id = <1>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&ds18b20_dp_pin>;
+		pinctrl-0 = <&ds18b20_dp_1_pin>;
+	};
+
+	ds18b20_2 {
+		compatible = "firefly,ds1820";
+		ds1820-dq = <&gpio4 RK_PA5 GPIO_ACTIVE_LOW>; //GPIO4_A5 TEMP_DET_2
+		ds18b20-id = <2>;
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&ds18b20_dp_2_pin>;
 	};
 
 
@@ -152,18 +161,21 @@
 			label = "HUB30_PWR_EN";
 			gpios = <&gpio0 RK_PD5 GPIO_ACTIVE_HIGH>;	//GPIO0_D5
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		HUB30_PWR_RESET {
 			label = "HUB30_PWR_RESET";
 			gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;   //GPIO1_C2
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		NETWORK_SW_PWR_EN {
 			label = "NETWORK_SW_PWR_EN";
 			gpios = <&gpio3 RK_PD2 GPIO_ACTIVE_LOW>;   //GPIO3_D2
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		NETWORK_INTERNAL_PWR_EN {
@@ -184,48 +196,56 @@
 			label = "PWR_EN_SUB1";
 			gpios = <&sub_core_pca9555 PCA_IO0_0 GPIO_ACTIVE_HIGH>;	///GPIO4_B3
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB2 {
 			label = "PWR_EN_SUB2";
 			gpios = <&sub_core_pca9555 PCA_IO0_1 GPIO_ACTIVE_HIGH>;	//GPIO4_B2
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB3 {
 			label = "PWR_EN_SUB3";
 			gpios = <&sub_core_pca9555 PCA_IO0_2 GPIO_ACTIVE_HIGH>;	//GPIO4_D1
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB4 {
 			label = "PWR_EN_SUB4";
 			gpios = <&sub_core_pca9555 PCA_IO0_3 GPIO_ACTIVE_HIGH>;	//GPIO4_D3
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB5 {
 			label = "PWR_EN_SUB5";
 			gpios = <&sub_core_pca9555 PCA_IO0_4 GPIO_ACTIVE_HIGH>;	//GPIO4_D4
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB6 {
 			label = "PWR_EN_SUB6";
 			gpios = <&sub_core_pca9555 PCA_IO0_5 GPIO_ACTIVE_HIGH>;	//GPIO4_D2
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB7 {
 			label = "PWR_EN_SUB7";
 			gpios = <&sub_core_pca9555 PCA_IO0_6 GPIO_ACTIVE_HIGH>;	//GPIO4_B4
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		PWR_EN_SUB8 {
 			label = "PWR_EN_SUB8";
 			gpios = <&sub_core_pca9555 PCA_IO0_7 GPIO_ACTIVE_HIGH>;	//GPIO4_D0
 			default-state = "on";
+			retain-state-shutdown;
 		};
 
 		////////////////////////RESET////////////////////////////
@@ -234,48 +254,56 @@
 			label = "RESET_SUB1";
 			gpios = <&sub_core_pca9555 PCA_IO1_0 GPIO_ACTIVE_HIGH>;	//GPIO1_C2
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB2 {
 			label = "RESET_SUB2";
 			gpios = <&sub_core_pca9555 PCA_IO1_1 GPIO_ACTIVE_HIGH>;	//GPIO1_C5
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB3 {
 			label = "RESET_SUB3";
 			gpios = <&sub_core_pca9555 PCA_IO1_2 GPIO_ACTIVE_HIGH>;	//GPIO1_C7
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB4 {
 			label = "RESET_SUB4";
 			gpios = <&sub_core_pca9555 PCA_IO1_3 GPIO_ACTIVE_HIGH>;	//GPIO1_D4
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB5 {
 			label = "RESET_SUB5";
 			gpios = <&sub_core_pca9555 PCA_IO1_4 GPIO_ACTIVE_HIGH>;	//GPIO1_C3
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB6 {
 			label = "RESET_SUB6";
 			gpios = <&sub_core_pca9555 PCA_IO1_5 GPIO_ACTIVE_HIGH>;	//GPIO1_D2
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB7 {
 			label = "RESET_SUB7";
 			gpios = <&sub_core_pca9555 PCA_IO1_6 GPIO_ACTIVE_HIGH>;	///GPIO1_D5
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 		RESET_SUB8 {
 			label = "RESET_SUB8";
 			gpios = <&sub_core_pca9555 PCA_IO1_7 GPIO_ACTIVE_HIGH>;	//GPIO1_C4
 			default-state = "off";
+			retain-state-shutdown;
 		};
 
 
@@ -331,8 +359,10 @@
 		BUZZER {
 			//BMC LED
 			label = "BUZZER";
-			gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO0_C5
+			gpios = <&gpio1 RK_PC5 GPIO_ACTIVE_HIGH>;	//GPIO1_C5
 			default-state = "off";
+			pinctrl-names = "default";
+			pinctrl-0 = <&buzzer_ctl>;
 		};
 
 		PWR_EN_4G {
@@ -446,7 +476,7 @@
 // };
 
 &i2s0_8ch{
-	status = "okay";
+	status = "disabled";
 };
 
 /* display port0 */
@@ -561,11 +591,59 @@
 	status = "okay";
 };
 
+&spi1 {
+	status = "okay";
+	max-freq = <48000000>;
+	dev-port = <0>;
+	pinctrl-0 = <&spi1m2_pins>;
+	num-cs = <1>;
+
+	spi_wk2xxx_2: spi_wk2xxx_2@0{
+		status = "okay";
+		compatible = "firefly,spi-wk2xxx";
+		reg = <0x00>;
+		index_base = <5>;
+		spi-max-frequency = <10000000>;
+		//power-gpio = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+
+		reset-gpio = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;		//WK2124_RST_2	GPIO1_C4
+		irq-gpio = <&gpio1 RK_PC3 IRQ_TYPE_EDGE_FALLING>;	//WK2124_INT_2	GPIO1_C3
+		cs-gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;			//SPI1_CS0_M2	GPIO1_D3
+
+		pinctrl-0 = <&wk2xxx_2_irq_gpios>;
+		pinctrl-names = "default";
+	};
+};
+
 /* PMIC spi2 */
 &spi2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2m2_cs0 &spi2m2_pins>;
 	num-cs = <1>;
+};
+
+&spi4 {
+	status = "okay";
+	max-freq = <48000000>;
+	dev-port = <0>;
+	pinctrl-0 = <&spi4m2_pins>;
+	num-cs = <1>;
+
+	spi_wk2xxx_1: wk2xxx_spi@0{
+		status = "okay";
+		compatible = "firefly,spi-wk2xxx";
+		reg = <0x00>;
+		index_base = <1>;
+		spi-max-frequency = <10000000>;
+		reset-gpio = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;		//WK2124_RST_1	GPIO1_D5
+		irq-gpio = <&gpio1 RK_PB2 IRQ_TYPE_EDGE_FALLING>;	//WK2124_INT_1	GPIO1_B2
+		cs-gpio = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;			//SPI4_CS0_M2	GPIO1_A3
+
+		//pinctrl-0 = <&reset_gpios>,<&irq_gpios>,<&cs_gpios>;
+		//pinctrl-names = "default";
+		pinctrl-0 = <&wk2xxx_1_irq_gpios>;
+		pinctrl-names = "default";
+	};
 };
 
 &sdmmc {
@@ -641,7 +719,7 @@
 		status = "okay";
 		compatible = "firefly,pc9202";
 		reg = <0x3c>;
-		wd-en-gpio = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;         //GPIO4_A4
+		wd-en-gpio = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;         //GPIO4_B2
 		pinctrl-names = "default";
 		pinctrl-0 = <&wdt_ctl>;
 	};
@@ -759,6 +837,13 @@
 
 &pinctrl {
 
+	buzzer_pin {
+		buzzer_ctl: buzzer-ctl {
+				rockchip,pins =
+				<1 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;            //GPIO1_C5
+		};
+	};
+
 	watchdog {
 		wdt_ctl: wdt-ctl {
 				rockchip,pins =
@@ -778,9 +863,15 @@
 		};
 	};
 
-	ds18b20-dp {
-		ds18b20_dp_pin: ds18b20-dp-pin {
+	ds18b20-dp-1 {
+		ds18b20_dp_1_pin: ds18b20-dp-1-pin {
 			rockchip,pins = <4 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;  //GPIO4_A6
+		};
+	};
+
+	ds18b20-dp-2 {
+		ds18b20_dp_2_pin: ds18b20-dp-2-pin {
+			rockchip,pins = <4 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;  //GPIO4_A5
 		};
 	};
 
@@ -840,4 +931,14 @@
                         rockchip,pins = <0 RK_PC7 RK_FUNC_GPIO &pcfg_pull_up>;
                 };
         };
+
+	wk2xxx-irq-gpios {
+		wk2xxx_1_irq_gpios: wk2xxx-1-irq-gpios{
+			rockchip,pins = <1 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		wk2xxx_2_irq_gpios: wk2xxx-2-irq-gpios{
+			rockchip,pins = <1 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
 };

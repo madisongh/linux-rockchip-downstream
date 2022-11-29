@@ -57,20 +57,19 @@ static struct sw2001 *the_sw2001;
 static int major;
 static struct class *cls;
 static struct device *dev;
-int wd_en_gpio;
+// int wd_en_gpio;
+struct gpio_desc *wd_en_gpio;
 
 void enable_wdt(void)
 {
-	if(wd_en_gpio >= 0)
-		gpio_direction_output(wd_en_gpio, 1);
-	return;
+	printk("====== enabled 9202 wdt ======\n");
+	gpiod_direction_output(wd_en_gpio, 1);
 }
 
 void disable_wdt(void)
 {
-	if(wd_en_gpio >= 0)
-		gpio_direction_output(wd_en_gpio, 0);
-	return;
+	printk("====== disabled 9202 wdt ======\n");
+	gpiod_direction_output(wd_en_gpio, 0);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -229,12 +228,8 @@ struct file_operations wdt_fops = {
 static int pc9202_wdt_probe(struct i2c_client *client,
         const struct i2c_device_id *id)
 {
-    //struct device_node *np = client->dev.of_node;
-    //struct sw2001 *ts;
 	struct sw2001	*pEnc;
 	uint8_t reg_value;
-	struct iio_channel *channel;
-	int raw;
 	int retry_count, ret;
 
     if (!of_device_is_available(client->dev.of_node)) {
@@ -282,49 +277,13 @@ static int pc9202_wdt_probe(struct i2c_client *client,
 	// 创建设备节点
 	dev = device_create(cls, NULL, MKDEV(major, 0), NULL, "wdt_crl");
 
-	if (of_find_property(client->dev.of_node, "firefly-server-r1", NULL)) {
-		printk("%s(): SERVER-R1 watchdog enabled gpio init\n",__FUNCTION__);
-		channel = iio_channel_get(&(client->dev), NULL);
-		if (IS_ERR(channel)){
-			channel = NULL;
-			printk("%s() have not set adc chan\n", __FUNCTION__);
-			goto err;
-		}
-		iio_read_channel_raw(channel, &raw);
+	wd_en_gpio = devm_gpiod_get_optional(&client->dev, "wd-en", GPIOD_ASIS);
 
-		if( (raw > 0 && raw < 20) || (raw > 540 && raw < 580) || (raw > 590 && raw < 630) ) {
-			printk("%s(): SERVER-R1's main core board watchdog enabled gpio init\n",__FUNCTION__);
-			wd_en_gpio = of_get_named_gpio_flags(client->dev.of_node, "wd-en-gpio-m", 0, NULL);
-		} else {
-			printk("%s(): SERVER-R1's sub core board watchdog enabled gpio init\n",__FUNCTION__);
-			wd_en_gpio = of_get_named_gpio_flags(client->dev.of_node, "wd-en-gpio", 0, NULL);
-		}
-
-		if (!gpio_is_valid(wd_en_gpio)) {
-			printk("%s(): wd_en_gpio: %d is invalid\n", __FUNCTION__, wd_en_gpio);
-			goto err;
-		}
-		if (gpio_request(wd_en_gpio, "wdt-en")) {
-			printk("%s(): gpio %d request failed!\n", __FUNCTION__, wd_en_gpio);
-			gpio_free(wd_en_gpio);
-			goto err;
-		} else {
-			gpio_direction_output(wd_en_gpio, 0);
-			return 0;
-		}
-	}
-
-	wd_en_gpio = of_get_named_gpio_flags(client->dev.of_node, "wd-en-gpio", 0, NULL);
-	if (!gpio_is_valid(wd_en_gpio)) {
-		printk("%s(): wd_en_gpio: %d is invalid\n", __FUNCTION__, wd_en_gpio);
-	} else {
-		if (gpio_request(wd_en_gpio, "wdt-en")) {
-			printk("%s(): gpio %d request failed!\n", __FUNCTION__, wd_en_gpio);
-			gpio_free(wd_en_gpio);
-			goto err;
-		} else {
-			gpio_direction_output(wd_en_gpio, 0);
-		}
+	if (IS_ERR(wd_en_gpio)) {
+		ret = PTR_ERR(wd_en_gpio);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to get reset GPIO: %d\n", ret);
+		return ret;
 	}
 
     return 0;
@@ -341,8 +300,6 @@ static int pc9202_wdt_remove(struct i2c_client *client)
 
 	//PR_DEBUG("%s\n",__func__);
 
-	if(wd_en_gpio >= 0)
-		gpio_free(wd_en_gpio);
 	kfree(axp);
 	i2c_set_clientdata(client, NULL);
 	the_sw2001 = NULL;
