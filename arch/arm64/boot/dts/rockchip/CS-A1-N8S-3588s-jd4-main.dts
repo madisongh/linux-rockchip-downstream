@@ -150,13 +150,13 @@
 		HUB30_PWR_EN {
 			//BMC LED
 			label = "HUB30_PWR_EN";
-			gpios = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;	//GPIO0_B0
+			gpios = <&gpio0 RK_PD5 GPIO_ACTIVE_HIGH>;	//GPIO0_D5
 			default-state = "on";
 		};
 
 		HUB30_PWR_RESET {
 			label = "HUB30_PWR_RESET";
-			gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;   //GPIO1_D1
+			gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;   //GPIO1_C2
 			default-state = "off";
 		};
 
@@ -490,7 +490,7 @@
 };
 
 &pcie2x1l1 {
-	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+	//reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	rockchip,skip-scan-in-resume;
 	status = "disabled";
 };
@@ -503,7 +503,8 @@
 
 //pci
 &pcie2x1l2 {
-	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+	//reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
 	//prsnt-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	rockchip,skip-scan-in-resume;
 	status = "okay";
