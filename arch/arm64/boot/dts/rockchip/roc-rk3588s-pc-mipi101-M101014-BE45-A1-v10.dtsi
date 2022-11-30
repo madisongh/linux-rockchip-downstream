@@ -134,9 +134,9 @@
 };
 
 &route_hdmi0{
-    status = "disabled";
+    status = "okay";
 };
-
+/*
 &lcd_rst{
 	status = "okay";
 	gpio = <&gpio4 RK_PA6 GPIO_ACTIVE_HIGH>;
@@ -146,6 +146,7 @@
 	status = "okay";
 	gpio = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
 };
+*/
 
 &dsi1 {
     status = "okay";
@@ -157,8 +158,8 @@
         reg = <0>;
         backlight = <&backlight_1>;        
 
-        //enable-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
-        //reset-gpios = <&gpio4 RK_PA6 GPIO_ACTIVE_LOW>;
+        enable-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio4 RK_PA6 GPIO_ACTIVE_LOW>;
 
         enable-delay-ms = <50>;
         prepare-delay-ms = <200>;
@@ -283,7 +284,7 @@
 };
 
 &route_hdmi0{
-    status = "disabled";
+    status = "okay";
 };
 /*
 &lcd_rst {
