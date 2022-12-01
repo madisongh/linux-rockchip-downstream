@@ -656,7 +656,7 @@ static int setup_initial_state(struct drm_device *drm_dev,
 		conn_state->best_encoder = funcs->best_encoder(connector);
 	else
 		conn_state->best_encoder = rockchip_drm_connector_get_single_encoder(connector);
-/*
+
 	if (set->sub_dev->loader_protect) {
 		ret = set->sub_dev->loader_protect(conn_state->best_encoder, true);
 		if (ret) {
@@ -666,7 +666,7 @@ static int setup_initial_state(struct drm_device *drm_dev,
 			return ret;
 		}
 	}
-*/
+
 	num_modes = rockchip_drm_fill_connector_modes(connector, 7680, 7680, set->force_output);
 	if (!num_modes) {
 		dev_err(drm_dev->dev, "connector[%s] can't found any modes\n",
@@ -720,7 +720,14 @@ static int setup_initial_state(struct drm_device *drm_dev,
 	}
 
 	drm_mode_copy(&crtc_state->adjusted_mode, mode);
+#if 1
+	if (!match || !is_crtc_enabled ||
+		!strcmp(set->sub_dev->connector->name,"DSI-2") ||
+		!strcmp(set->sub_dev->connector->name,"DSI-1")) {
+		printk("Firefly : connector->name = %s\r\n",connector->name);
+#else
 	if (!match || !is_crtc_enabled) {
+#endif
 		set->mode_changed = true;
 	} else {
 		ret = drm_atomic_set_crtc_for_connector(conn_state, crtc);
@@ -1007,7 +1014,7 @@ void rockchip_drm_show_logo(struct drm_device *drm_dev)
 	 * drm devices as old state, so if new state come, can compare
 	 * with this state to judge which status need to update.
 	 */
-	//WARN_ON(drm_atomic_helper_swap_state(state, false));
+	WARN_ON(drm_atomic_helper_swap_state(state, false));
 	drm_atomic_state_put(state);
 	old_state = drm_atomic_helper_duplicate_state(drm_dev,
 						      mode_config->acquire_ctx);
@@ -1038,7 +1045,7 @@ void rockchip_drm_show_logo(struct drm_device *drm_dev)
 			state->connectors[i].new_state->best_encoder = NULL;
 	}
 
-	//ret = drm_atomic_commit(state);
+	ret = drm_atomic_commit(state);
 	/**
 	 * todo
 	 * drm_atomic_clean_old_fb(drm_dev, plane_mask, ret);

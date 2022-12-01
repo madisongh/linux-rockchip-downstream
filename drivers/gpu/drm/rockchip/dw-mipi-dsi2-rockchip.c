@@ -1019,11 +1019,11 @@ static int dw_mipi_dsi2_encoder_loader_protect(struct drm_encoder *encoder,
 {
 	struct dw_mipi_dsi2 *dsi2 = encoder_to_dsi2(encoder);
 
+if(0) {
 	if (dsi2->panel)
 		panel_simple_loader_protect(dsi2->panel);
-
 	dw_mipi_dsi2_loader_protect(dsi2, on);
-
+}
 	return 0;
 }
 
@@ -1276,6 +1276,7 @@ static int dw_mipi_dsi2_register_sub_dev(struct dw_mipi_dsi2 *dsi2,
 	dsi2->sub_dev.connector = connector;
 	dsi2->sub_dev.of_node = dev->of_node;
 	dsi2->sub_dev.loader_protect = dw_mipi_dsi2_encoder_loader_protect;
+	//dsi2->sub_dev.loader_protect = NULL; // Firefly not protect
 	rockchip_drm_register_sub_dev(&dsi2->sub_dev);
 
 	return 0;
