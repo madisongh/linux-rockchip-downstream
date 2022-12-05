@@ -720,14 +720,7 @@ static int setup_initial_state(struct drm_device *drm_dev,
 	}
 
 	drm_mode_copy(&crtc_state->adjusted_mode, mode);
-#if 1
-	if (!match || !is_crtc_enabled ||
-		!strcmp(set->sub_dev->connector->name,"DSI-2") ||
-		!strcmp(set->sub_dev->connector->name,"DSI-1")) {
-		printk("Firefly : connector->name = %s\r\n",connector->name);
-#else
 	if (!match || !is_crtc_enabled) {
-#endif
 		set->mode_changed = true;
 	} else {
 		ret = drm_atomic_set_crtc_for_connector(conn_state, crtc);
