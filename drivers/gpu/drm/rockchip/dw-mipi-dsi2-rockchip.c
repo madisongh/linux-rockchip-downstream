@@ -1287,17 +1287,21 @@ connector_cleanup:
 }
 
 #ifdef MIPI_FF_CHECK
-int uboot_dsi0_ncheck = 0;
+#define FF_CHECK       2
+#define FF_NOT_CHECK   1
+#define FF_NONE	       0
+
+int uboot_dsi0_check_state = FF_NONE;
 static int __init ff_mipi_dsi0_ncheck(char *str){
 	int ret;
-	ret = kstrtoint(str, 10, &uboot_dsi0_ncheck);
+	ret = kstrtoint(str, 10, &uboot_dsi0_check_state);
 	return ret;
 }
 
-int uboot_dsi1_ncheck = 0;
+int uboot_dsi1_check_state = FF_NONE;
 static int __init ff_mipi_dsi1_ncheck(char *str){
 	int ret;
-	ret = kstrtoint(str, 10, &uboot_dsi1_ncheck);
+	ret = kstrtoint(str, 10, &uboot_dsi1_check_state);
 	return ret;
 }
 #endif
@@ -1313,7 +1317,7 @@ static int dw_mipi_dsi2_bind(struct device *dev, struct device *master,
 	enum drm_bridge_attach_flags flags;
 	int ret;
 #ifdef MIPI_FF_CHECK
-	int uboot_ncheck = 0;
+	int uboot_check_state = FF_NONE;
 #endif
 	dsi2->drm_dev = drm_dev;
 	ret = dw_mipi_dsi2_dual_channel_probe(dsi2);
@@ -1335,16 +1339,16 @@ static int dw_mipi_dsi2_bind(struct device *dev, struct device *master,
 	
 	if(dsi2->id == 0){
 		__setup("dsi-0=",ff_mipi_dsi0_ncheck);
-		uboot_ncheck = uboot_dsi0_ncheck;
+		uboot_check_state = uboot_dsi0_check_state;
 	} else {
 		__setup("dsi-1=",ff_mipi_dsi1_ncheck);
-		uboot_ncheck = uboot_dsi1_ncheck;
+		uboot_check_state = uboot_dsi1_check_state;
 	}
-	
+	printk("Daijh: %d\r\n",uboot_check_state);
 	/* 1: Not check mipi id ,  0: Check mipi id */
 	/* If the uboot successfully checks the mipi id, the kernel detection step is skipped */
-	if(!uboot_ncheck){
-		printk("Firefly: full_name %s: id %d: %d\r\n",of_node->full_name,dsi2->id,uboot_ncheck);
+	if(uboot_check_state == FF_CHECK || uboot_check_state == FF_NONE){
+		printk("Firefly: full_name %s: id %d\r\n",of_node->full_name,dsi2->id);
 		if(dsi2->firefly_check) {
 			ret = ff_dw_mipi_dsi2_encoder_enable(dsi2);
 			ff_dw_mipi_dsi2_encoder_disable(dsi2);
