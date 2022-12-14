@@ -1,10 +1,13 @@
+#define USE_TE_MODE 1
 / { 
     backlight: backlight {
         status = "okay";
         compatible = "pwm-backlight";
-        //enable-gpios = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
-        pwms = <&pwm14 0 50000 1>;
-        brightness-levels = <
+        #if !USE_TE_MODE
+        enable-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
+        #endif
+        pwms = <&pwm14 0 5000 0>;        
+	brightness-levels = <
              60  60  60  61  61  61  62  62
              62  63  63  63  64  64  64  65
              65  65  66  66  66  67  67  67
@@ -44,14 +47,6 @@
 
 };
 
-
-
-
-
-
-
-
-
 &pwm14 {
     pinctrl-0 = <&pwm14m2_pins>;
     status = "okay";
@@ -78,18 +73,21 @@
     connect = <&vp3_out_dsi0>;
 };
 
-&route_hdmi0{
-    status = "okay";
-};
-
 &dsi0 {
     status = "okay";
     //rockchip,lane-rate = <1000>;
 
-#if 0
+#if USE_TE_MODE
+#if 1
+// soft te
     pinctrl-names = "default";
     pinctrl-0 = <&mipi_te0_pins>;
-    te-gpios = <&gpio3 RK_PD4 GPIO_ACTIVE_LOW>;
+    te-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_LOW>;
+#else
+// hardware te
+    pinctrl-names = "default";
+    pinctrl-0 = <&mipi_te0>;
+#endif
 #endif
 
     dsi_panel: panel@0 {
@@ -98,7 +96,7 @@
         reg = <0>;
         backlight = <&backlight>;
         
-        enable-gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
+        enable-gpios = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
         reset-gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;
 
         enable-delay-ms = <50>;
@@ -107,7 +105,7 @@
         init-delay-ms = <55>;
         unprepare-delay-ms = <50>;
         disable-delay-ms = <20>;
-        mipi-data-delay-ms = <200>;
+        mipi-data-delay-ms = <20>;
         size,width = <120>;
         size,height = <170>;
         //dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST | MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
@@ -115,6 +113,7 @@
         dsi,format = <MIPI_DSI_FMT_RGB888>;
         dsi,lanes  = <1>;
 
+	rotation = <90>;
         panel-init-sequence = [
             05 64 01 11
             39 00 05 2A 00 00 00 EF
@@ -194,6 +193,7 @@
         goodix,irq-gpio = <&gpio1 RK_PA7 IRQ_TYPE_LEVEL_LOW>;
         flip-x = <1>;
         flip-y = <1>;
+	touchscreen-swapped-x-y;
 
         goodix,cfg-group2 = [
             5B F0 00 B0 01 0A 05 00 01 08 
@@ -228,7 +228,7 @@
 
     mipi {
         mipi_te0_pins: mipi-te0-pins {
-            rockchip,pins = <3 RK_PD4 RK_FUNC_GPIO &pcfg_pull_none>;
+            rockchip,pins = <1 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
         };
     };
 
