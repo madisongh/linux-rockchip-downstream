@@ -70,7 +70,24 @@
 
 &route_dsi0 {
     status = "okay";
+    station-logo;
+    logo,stations = "logo_stations.bmp";
+    logo,stationm = "logo_stationm.bmp";
     connect = <&vp3_out_dsi0>;
+};
+
+&route_hdmi0 {
+    status = "okay";
+    station-logo;
+    logo,stations = "logo_stations.bmp";
+    logo,stationm = "logo_stationm.bmp";
+};
+
+&route_dp0 {
+    status = "okay";
+    station-logo;
+    logo,stations = "logo_stations.bmp";
+    logo,stationm = "logo_stationm.bmp";
 };
 
 &dsi0 {
