@@ -93,7 +93,7 @@
 &dsi0 {
     status = "okay";
     //rockchip,lane-rate = <1000>;
-
+    firefly-check;
 #if USE_TE_MODE
 #if 1
 // soft te
@@ -132,6 +132,7 @@
 
 	rotation = <90>;
         panel-init-sequence = [
+	    99 00 02 da fe
             05 64 01 11
             39 00 05 2A 00 00 00 EF
             39 00 05 2B 00 00 01 AF
