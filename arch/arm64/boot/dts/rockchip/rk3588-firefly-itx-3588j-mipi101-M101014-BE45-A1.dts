@@ -138,6 +138,7 @@
 };
 
 &dsi1 {
+        firefly-check;
 	status = "okay";
 	//rockchip,lane-rate = <1000>;
 	dsi1_panel: panel@0 {
@@ -164,6 +165,7 @@
 		panel-init-sequence = [
 			//39 00 04 B9 83 10 2E
 			// 15 00 02 CF FF
+	    		99 00 02 04 83
 			05 78 01 11
 			05 32 01 29
 			//15 00 02 35 00
@@ -267,6 +269,7 @@
 };
 
 &dsi0 {
+        firefly-check;
 	status = "okay";
 	//rockchip,lane-rate = <1000>;
 	dsi0_panel: panel@0 {
@@ -294,6 +297,7 @@
 		panel-init-sequence = [
 			//39 00 04 B9 83 10 2E
 			// 15 00 02 CF FF
+	    		99 00 02 04 83
 			05 78 01 11
 			05 32 01 29
 			//15 00 02 35 00
