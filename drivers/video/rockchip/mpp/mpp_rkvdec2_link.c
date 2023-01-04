@@ -561,10 +561,9 @@ static int rkvdec_link_isr_recv_task(struct mpp_dev *mpp,
 				link_dec->stuff_cnt++;
 				if (link_dec->stuff_cnt >=
 				    link_dec->statistic_count) {
-					dev_info(
-						link_dec->dev, "hw cycle %u\n",
-						(u32)(link_dec->stuff_cycle_sum /
-						      link_dec->statistic_count));
+					dev_info(link_dec->dev, "hw cycle %u\n",
+						(u32)(div_u64(link_dec->task_cycle_sum,
+								link_dec->statistic_count)));
 					link_dec->stuff_cycle_sum = 0;
 					link_dec->stuff_cnt = 0;
 				}
@@ -597,11 +596,12 @@ static int rkvdec_link_isr_recv_task(struct mpp_dev *mpp,
 
 			continue;
 		}
+
 		task = to_rkvdec2_task(mpp_task);
 		regs = table_base + idx * link_dec->link_reg_count;
 		irq_status = regs[info->tb_reg_int];
 		mpp_task->hw_cycles = regs[info->tb_reg_cycle];
-		mpp_time_diff(mpp_task, dec->core_clk_info.real_rate_hz);
+		mpp_time_diff_with_hw_time(mpp_task, dec->core_clk_info.real_rate_hz);
 		mpp_dbg_link_flow("slot %d rd task %d\n", idx,
 				  mpp_task->task_id);
 
@@ -617,8 +617,8 @@ static int rkvdec_link_isr_recv_task(struct mpp_dev *mpp,
 			link_dec->task_cnt++;
 			if (link_dec->task_cnt >= link_dec->statistic_count) {
 				dev_info(link_dec->dev, "hw cycle %u\n",
-					 (u32)(link_dec->task_cycle_sum /
-					       link_dec->statistic_count));
+					 (u32)(div_u64(link_dec->task_cycle_sum,
+							link_dec->statistic_count)));
 				link_dec->task_cycle_sum = 0;
 				link_dec->task_cnt = 0;
 			}
@@ -1070,6 +1070,7 @@ static int rkvdec2_link_power_on(struct mpp_dev *mpp)
 		mpp_clk_set_rate(&dec->cabac_clk_info, CLK_MODE_ADVANCED);
 		mpp_clk_set_rate(&dec->hevc_cabac_clk_info, CLK_MODE_ADVANCED);
 		mpp_devfreq_set_core_rate(mpp, CLK_MODE_ADVANCED);
+		mpp_iommu_dev_activate(mpp->iommu_info, mpp);
 	}
 	return 0;
 }
@@ -1096,6 +1097,7 @@ static void rkvdec2_link_power_off(struct mpp_dev *mpp)
 		mpp_clk_set_rate(&dec->cabac_clk_info, CLK_MODE_NORMAL);
 		mpp_clk_set_rate(&dec->hevc_cabac_clk_info, CLK_MODE_NORMAL);
 		mpp_devfreq_set_core_rate(mpp, CLK_MODE_NORMAL);
+		mpp_iommu_dev_deactivate(mpp->iommu_info, mpp);
 	}
 }
 
@@ -1617,6 +1619,8 @@ static int rkvdec2_ccu_power_on(struct mpp_taskqueue *queue,
 			pm_stay_awake(mpp->dev);
 			if (mpp->hw_ops->clk_on)
 				mpp->hw_ops->clk_on(mpp);
+
+			mpp_iommu_dev_activate(mpp->iommu_info, mpp);
 		}
 		mpp_debug(DEBUG_CCU, "power on\n");
 	}
@@ -1645,6 +1649,7 @@ static int rkvdec2_ccu_power_off(struct mpp_taskqueue *queue,
 			pm_relax(mpp->dev);
 			pm_runtime_mark_last_busy(mpp->dev);
 			pm_runtime_put_autosuspend(mpp->dev);
+			mpp_iommu_dev_deactivate(mpp->iommu_info, mpp);
 		}
 		mpp_debug(DEBUG_CCU, "power off\n");
 	}
@@ -1685,7 +1690,7 @@ static int rkvdec2_soft_ccu_dequeue(struct mpp_taskqueue *queue)
 			set_bit(TASK_STATE_HANDLE, &mpp_task->state);
 			cancel_delayed_work(&mpp_task->timeout_work);
 			mpp_task->hw_cycles = mpp_read(mpp, RKVDEC_PERF_WORKING_CNT);
-			mpp_time_diff(mpp_task, dec->core_clk_info.real_rate_hz);
+			mpp_time_diff_with_hw_time(mpp_task, dec->core_clk_info.real_rate_hz);
 			task->irq_status = irq_status;
 			mpp_debug(DEBUG_IRQ_CHECK, "irq_status=%08x, timeout=%u, abort=%u\n",
 				  irq_status, timeout_flag, abort_flag);
@@ -1747,14 +1752,14 @@ static int rkvdec2_soft_ccu_reset(struct mpp_taskqueue *queue,
 		if (!(val & RKVDEC_BIT_BUS_IDLE))
 			mpp_err("bus busy\n");
 
-#if IS_ENABLED(CONFIG_ROCKCHIP_SIP)
-		/* sip reset */
-		rockchip_dmcfreq_lock();
-		sip_smc_vpu_reset(i, 0, 0);
-		rockchip_dmcfreq_unlock();
-#else
-		rkvdec2_reset(mpp);
-#endif
+		if (IS_REACHABLE(CONFIG_ROCKCHIP_SIP)) {
+			/* sip reset */
+			rockchip_dmcfreq_lock();
+			sip_smc_vpu_reset(i, 0, 0);
+			rockchip_dmcfreq_unlock();
+		} else {
+			rkvdec2_reset(mpp);
+		}
 		/* clear error mask */
 		writel(dec->core_mask & RKVDEC_CCU_CORE_RW_MASK,
 		       ccu->reg_base + RKVDEC_CCU_CORE_ERR_BASE);
@@ -1876,8 +1881,6 @@ static int rkvdec2_soft_ccu_enqueue(struct mpp_dev *mpp, struct mpp_task *mpp_ta
 	mpp_iommu_flush_tlb(mpp->iommu_info);
 	/* set registers for hardware */
 	reg_en = mpp_task->hw_info->reg_en;
-	task->reg[13] |= BIT(1);
-	task->reg[32] = 0x3ffffff;
 	for (i = 0; i < task->w_req_cnt; i++) {
 		int s, e;
 		struct mpp_request *req = &task->w_reqs[i];
@@ -1996,8 +1999,9 @@ get_task:
 		mutex_lock(&queue->pending_lock);
 		list_del_init(&mpp_task->queue_link);
 
-		//set_bit(TASK_STATE_ABORT_READY, &mpp_task->state);
-		//set_bit(TASK_STATE_PROC_DONE, &mpp_task->state);
+		kref_get(&mpp_task->ref);
+		set_bit(TASK_STATE_ABORT_READY, &mpp_task->state);
+		set_bit(TASK_STATE_PROC_DONE, &mpp_task->state);
 
 		mutex_unlock(&queue->pending_lock);
 		wake_up(&dec_task->wait);

@@ -193,17 +193,6 @@ static const struct capture_fmt sp_fmts[] = {
 		.write_format = MI_CTRL_SP_WRITE_PLA,
 		.output_format = MI_CTRL_SP_OUTPUT_RGB565,
 	},
-	/* fbcg */
-	{
-		.fourcc = V4L2_PIX_FMT_FBCG,
-		.fmt_type = FMT_FBCGAIN,
-		.bpp = { 8, 16 },
-		.cplanes = 2,
-		.mplanes = 2,
-		.uv_swap = 0,
-		.write_format = MI_CTRL_SP_WRITE_SPLA,
-		.output_format = MI_CTRL_SP_OUTPUT_YUV420,
-	}
 };
 
 static const struct capture_fmt bp_fmts[] = {
@@ -1311,12 +1300,16 @@ static void rkisp_stream_stop(struct rkisp_stream *stream)
 
 	stream->stopping = true;
 	stream->is_pause = false;
-	if (dev->hw_dev->is_single && stream->ops->disable_mi)
+	if (stream->ops->disable_mi)
 		stream->ops->disable_mi(stream);
 	if (IS_HDR_RDBK(dev->rd_mode)) {
 		spin_lock_irqsave(&dev->hw_dev->rdbk_lock, lock_flags);
-		if (dev->hw_dev->cur_dev_id != dev->dev_id || dev->hw_dev->is_idle)
+		if (dev->hw_dev->cur_dev_id != dev->dev_id || dev->hw_dev->is_idle) {
 			is_wait = false;
+			/* force update to close */
+			if (dev->hw_dev->is_single)
+				stream_self_update(stream);
+		}
 		if (atomic_read(&dev->cap_dev.refcnt) == 1 && !is_wait)
 			dev->isp_state = ISP_STOP;
 		spin_unlock_irqrestore(&dev->hw_dev->rdbk_lock, lock_flags);
@@ -1368,7 +1361,8 @@ static int rkisp_start(struct rkisp_stream *stream)
 		if (ret)
 			return ret;
 	}
-	stream_self_update(stream);
+	if (dev->hw_dev->is_single)
+		stream_self_update(stream);
 	if (stream->ops->enable_mi)
 		stream->ops->enable_mi(stream);
 
