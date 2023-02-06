@@ -721,17 +721,19 @@ static int __gc2093_power_on(struct gc2093 *gc2093)
 	int ret;
 	struct device *dev = gc2093->dev;
 
-	ret = clk_set_rate(gc2093->xvclk, GC2093_XVCLK_FREQ);
-	if (ret < 0)
-		dev_warn(dev, "Failed to set xvclk rate\n");
+	if (!IS_ERR(gc2093->xvclk)) {
+		ret = clk_set_rate(gc2093->xvclk, GC2093_XVCLK_FREQ);
+		if (ret < 0)
+			dev_warn(dev, "Failed to set xvclk rate\n");
 
-	if (clk_get_rate(gc2093->xvclk) != GC2093_XVCLK_FREQ)
-		dev_warn(dev, "xvclk mismatched, modes are based on 27MHz\n");
+		if (clk_get_rate(gc2093->xvclk) != GC2093_XVCLK_FREQ)
+			dev_warn(dev, "xvclk mismatched, modes are based on 27MHz\n");
 
-	ret = clk_prepare_enable(gc2093->xvclk);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enable xvclk\n");
-		return ret;
+		ret = clk_prepare_enable(gc2093->xvclk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable xvclk\n");
+			return ret;
+		}
 	}
 
 	if (gc2093->is_thunderboot)
@@ -758,13 +760,15 @@ static int __gc2093_power_on(struct gc2093 *gc2093)
 	return 0;
 
 disable_clk:
-	clk_disable_unprepare(gc2093->xvclk);
+	if (!IS_ERR(gc2093->xvclk)) 
+		clk_disable_unprepare(gc2093->xvclk);
 	return ret;
 }
 
 static void __gc2093_power_off(struct gc2093 *gc2093)
 {
-	clk_disable_unprepare(gc2093->xvclk);
+	if (!IS_ERR(gc2093->xvclk)) 
+		clk_disable_unprepare(gc2093->xvclk);
 	if (gc2093->is_thunderboot) {
 		if (gc2093->is_first_streamoff) {
 			gc2093->is_thunderboot = false;
@@ -780,7 +784,8 @@ static void __gc2093_power_off(struct gc2093 *gc2093)
 		gpiod_set_value_cansleep(gc2093->pwdn_gpio, 0);
 
 	regulator_bulk_disable(GC2093_NUM_SUPPLIES, gc2093->supplies);
-	clk_disable_unprepare(gc2093->xvclk);
+	if (!IS_ERR(gc2093->xvclk)) 
+		clk_disable_unprepare(gc2093->xvclk);
 }
 
 static int gc2093_check_sensor_id(struct gc2093 *gc2093)
@@ -1448,7 +1453,7 @@ static int gc2093_probe(struct i2c_client *client,
 	gc2093->xvclk = devm_clk_get(gc2093->dev, "xvclk");
 	if (IS_ERR(gc2093->xvclk)) {
 		dev_err(gc2093->dev, "Failed to get xvclk\n");
-		return -EINVAL;
+		//return -EINVAL;
 	}
 
 	gc2093->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_ASIS);

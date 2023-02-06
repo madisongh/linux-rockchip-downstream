@@ -13,6 +13,7 @@
                 regulator-name = "vcc_mipidphy0";
                 enable-active-high;
         };
+
         flash_led: flash-led {
                 status = "okay";
                 compatible = "led,rgb13h";
@@ -21,7 +22,7 @@
                 flash-max-microamp = <20000>;
                 flash-max-timeout-us = <1000000>;
                 pwms=<&pwm14 0 25000 0>;
-                rockchip,camera-module-index = <3>;
+                rockchip,camera-module-index = <1>;
                 rockchip,camera-module-facing = "front";
         };
 
