@@ -88,6 +88,7 @@ static struct reg_default es8323_reg_defaults[] = {
 enum INPUT_LINE_DEV{
 	INPUT_LIN1,
 	INPUT_LIN2,        //mic line
+	INPUT_LIN1_DIFF,
 	INPUT_LIN2_DIFF,   //mic differential
 };
 
@@ -639,6 +640,8 @@ void firefly_multircodecs_mute_es8323(int mute)
 		snd_soc_component_write(es8323_param->component,ES8323_DACCONTROL3,0x06);
 		//	usleep_range(18000, 20000);
 		firefly_multicodecs_control_gpio(mute);
+		usleep_range(18000, 20000);
+		snd_soc_component_write(es8323_param->component, ES8323_DACPOWER, 0xC0);
 	}else{
 		firefly_multicodecs_control_gpio(mute);
 		//usleep_range(18000, 20000);
@@ -935,6 +938,9 @@ void es8323_line1_line2_line2diff_switch(int value)
 	}else if(value == INPUT_LIN2){
 		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0x50);
 		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x82);
+	}else if(value == INPUT_LIN1_DIFF){
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0xf0);
+		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x02);
 	}else{
 		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL2, 0xf0);
 		regmap_write(es8323_param->regmap, ES8323_ADCCONTROL3, 0x82);

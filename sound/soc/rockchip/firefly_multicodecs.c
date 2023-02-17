@@ -53,6 +53,7 @@ enum mic_link{
 enum INPUT_DEV{
 	INPUT_LIN1,
 	INPUT_LIN2,        //mic line
+	INPUT_LIN1_DIFF,   //mic differential
 	INPUT_LIN2_DIFF,   //mic differential
 };
 
@@ -61,6 +62,7 @@ enum LINEIN_TYPE{
 	LINEIN_TYPE1,    //ROC-RK3588S-PC USE
 	LINEIN_TYPE2,    //AIO-3588SJD4 USE
 	LINEIN_TYPE3,    //ROC-RK3588-PC USE
+	LINEIN_TPYE4,   //AIO-3588Q USE
 };
 
 #define POLL_VAL 80
@@ -78,7 +80,6 @@ struct multicodecs_data {
 	struct gpio_desc *spk_ctl_gpio;
 	struct gpio_desc *hp_det_gpio;
 	struct iio_channel *adc;
-	struct iio_channel *hw_ver;
 	struct extcon_dev *extcon;
 	struct delayed_work handler;
 	struct delayed_work mic_work;
@@ -86,8 +87,9 @@ struct multicodecs_data {
 	bool not_use_dapm;
 	bool hp_enable_state; //1: headphone inserting  0: headphone unpluging
 	bool codec_hp_det;
-	int hp_det_adc_value;
+	bool hw_ver;
 	int hw_ver_flag;
+	int hp_det_adc_value;
 	u32 linein_type;     //0:ITX-3588J(mic) 1:ROC-RK3588S-PC(mic)
 	u32 last_key;
 	u32 mic_status;
@@ -150,7 +152,7 @@ static struct jack_zone lin1_lin2_lin2diff_zone[] ={
 	}
 };
 
-static struct jack_zone lin0_lin1_zone[] ={
+static struct jack_zone aio_3588sjd4_zone[] ={
 	{
 		.min_mv = 0,
 		.max_mv = 100,
@@ -158,13 +160,32 @@ static struct jack_zone lin0_lin1_zone[] ={
 	}, {
 		.min_mv = 800,
 		.max_mv = 1000,
-		.type = INPUT_LIN2,
+		.type = INPUT_LIN1_DIFF,
 	}, {
 		.min_mv = 1700,
 		.max_mv = UINT_MAX,
 		.type = INPUT_LIN2_DIFF,
 	}
 };
+
+
+static struct jack_zone aio_3588q_zone[] ={
+	{
+		.min_mv = 0,
+		.max_mv = 200,
+		.type = INPUT_LIN2_DIFF,
+	}, {
+		.min_mv = 300,
+		.max_mv = 800,
+		.type = INPUT_LIN2,
+	}, {
+		.min_mv = 1000,
+		.max_mv = UINT_MAX,
+		.type = INPUT_LIN1,
+
+	}
+};
+
 
 static struct jack_zone lin1_leftonly_lin2diff_zone[] ={
 	{
@@ -207,13 +228,13 @@ static void mic_det_work(struct work_struct *work)
 		if(mc_data->linein_type == LINEIN_TYPE1){
 			status = jack_get_type(lin1_lin2_zone,ARRAY_SIZE(lin1_lin2_zone),value);
 		}else if (mc_data->linein_type == LINEIN_TYPE2){
-			status = jack_get_type(lin0_lin1_zone,ARRAY_SIZE(lin0_lin1_zone),value);
-			if (status == INPUT_LIN2_DIFF)
-				status = INPUT_LIN1;
+			status = jack_get_type(aio_3588sjd4_zone,ARRAY_SIZE(aio_3588sjd4_zone),value);
 		}else if (mc_data->linein_type == LINEIN_TYPE3){
 			status = jack_get_type(lin1_leftonly_lin2diff_zone,ARRAY_SIZE(lin1_leftonly_lin2diff_zone),value);
+		}else if (mc_data->linein_type == LINEIN_TPYE4){
+			status = jack_get_type(aio_3588q_zone,ARRAY_SIZE(aio_3588q_zone),value);
 		}else{
-			status = jack_get_type(lin1_lin2_lin2diff_zone,ARRAY_SIZE(lin1_lin2_lin2diff_zone),value);		
+			status = jack_get_type(lin1_lin2_lin2diff_zone,ARRAY_SIZE(lin1_lin2_lin2diff_zone),value);
 		}
 		//printk("mic_det_work value:%d,status:%d\n",value,status);
 	}
@@ -223,6 +244,8 @@ static void mic_det_work(struct work_struct *work)
 			es8323_line1_line2_line2diff_switch(INPUT_LIN1);
 		}else if(status == INPUT_LIN2){
 			es8323_line1_line2_line2diff_switch(INPUT_LIN2);
+		}else if(status == INPUT_LIN1_DIFF){
+			es8323_line1_line2_line2diff_switch(INPUT_LIN1_DIFF);
 		}else{
 			es8323_line1_line2_line2diff_switch(INPUT_LIN2_DIFF);
 		}
@@ -321,7 +344,7 @@ static void adc_jack_handler(struct work_struct *work)
 
 	int hp_det_gpio=0;
 
-	if(mc_data->hw_ver != NULL){
+	if(mc_data->hw_ver){
   		if(mc_data->hw_ver_flag == hw_ver_1)
   		 	hp_det_gpio = gpiod_get_value(mc_data->hp_det_gpio);
 		else
@@ -664,7 +687,7 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 	int ret = 0, i = 0, idx = 0;
 	const char *prefix = "rockchip,";
 	int adc_value;
-	int value;
+	u32 hw_ver ;
 
 	ret = wait_locked_card(np, &pdev->dev);
 	if (ret < 0) {
@@ -795,23 +818,25 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 		INIT_DEFERRABLE_WORK(&mc_data->handler, adc_jack_handler);
 	}
 
-	mc_data->hw_ver = devm_iio_channel_get(&pdev->dev, "hw-ver");
-	if (IS_ERR(mc_data->hw_ver)) {
-		if (PTR_ERR(mc_data->hw_ver) != -EPROBE_DEFER) {
-			mc_data->hw_ver = NULL;
-			dev_warn(&pdev->dev, "Failed to get hw ver");
-		}
+
+	if (of_property_read_u32(np, "hw-ver", &hw_ver))
+	{
+		mc_data->hw_ver = false;
+		dev_warn(&pdev->dev, "Failed to get hw-ver");
 	}
-
-	if(mc_data->hw_ver != NULL){
-		ret = iio_read_channel_raw(mc_data->hw_ver,&value);
-
-		if((value < 2148) && (value > 1948))
-			mc_data->hw_ver_flag = hw_ver_1;
-		else if(value < 100)
+	else
+	{
+		mc_data->hw_ver = true;
+		if(hw_ver == hw_ver_0)
+		{
+			printk("multicodecs : this is roc-rk3588s-pc v0.1\n");	
 			mc_data->hw_ver_flag = hw_ver_0;
-		else
+		}
+		else if(hw_ver == hw_ver_1)
+		{
+			printk("multicodecs : this is roc-rk3588s-pc v1.0 or later \n");
 			mc_data->hw_ver_flag = hw_ver_1;
+		}
 	}
 
 	mc_data->not_use_dapm =
