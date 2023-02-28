@@ -380,6 +380,10 @@
 	status = "okay";
 };
 
+// &rgmii_phy1 {
+// 	led_status_value = <0x6940>;//0x6940
+// };
+
 
 // //FAN1 PWM8_M2
 // &pwm8 {

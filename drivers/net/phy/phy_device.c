@@ -37,6 +37,11 @@ MODULE_DESCRIPTION("PHY library");
 MODULE_AUTHOR("Andy Fleming");
 MODULE_LICENSE("GPL");
 
+/* Set led status */
+static unsigned int led_value = 0x0;
+#define RTL_8211F_PHY_ID  0x001cc916
+#define RTL_8211F_VD_CG_PHY_ID  0x001cc878
+
 __ETHTOOL_DECLARE_LINK_MODE_MASK(phy_basic_features) __ro_after_init;
 EXPORT_SYMBOL_GPL(phy_basic_features);
 
@@ -2864,6 +2869,26 @@ static bool phy_drv_supports_irq(struct phy_driver *phydrv)
 	return phydrv->config_intr && phydrv->ack_interrupt;
 }
 
+static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
+{
+	int value;
+	dev_info(&phydev->mdio.dev, "%s\n", __func__);
+
+	value = phy_read(phydev, 31);
+	phy_write(phydev, 31, 0xd04);
+
+	mdelay(10);
+	value = phy_read(phydev, 16);
+	value = led_value;
+	phy_write(phydev, 16, value);
+
+	mdelay(10);
+	phy_read(phydev, 31);
+	phy_write(phydev, 31, 0x00);
+	return 0;
+}
+
+
 /**
  * phy_probe - probe and init a PHY device
  * @dev: device to probe and init
@@ -2878,6 +2903,7 @@ static int phy_probe(struct device *dev)
 	struct device_driver *drv = phydev->mdio.dev.driver;
 	struct phy_driver *phydrv = to_phy_driver(drv);
 	int err = 0;
+	int ret;
 
 	phydev->drv = phydrv;
 
@@ -2958,6 +2984,17 @@ static int phy_probe(struct device *dev)
 
 	/* Set the state to READY by default */
 	phydev->state = PHY_READY;
+
+	/* Set led status */
+	ret = device_property_read_u32(dev, "led_status_value", &led_value);
+	if(ret) {
+		dev_info(&phydev->mdio.dev, "[%s-%d] led_status_value normal\n", __func__, __LINE__);
+	}else {
+		if (phydev->phy_id == RTL_8211F_PHY_ID || phydev->phy_id == RTL_8211F_VD_CG_PHY_ID) {
+			phy_register_fixup_for_uid(phydev->phy_id, 0xffffffff, phy_rtl8211f_led_fixup);
+			dev_info(&phydev->mdio.dev, "[%s-%d] led_status_value = 0x%x\n", __func__, __LINE__, led_value);
+		}
+	}
 
 out:
 	/* Assert the reset signal */
