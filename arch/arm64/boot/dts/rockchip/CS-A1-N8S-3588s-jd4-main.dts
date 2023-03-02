@@ -6,65 +6,25 @@
 
 /dts-v1/;
 
-// #include "aio-3588sjd4.dtsi"
-// #include "aio-3588sjd4-cam-8ms1m.dtsi"
-// #include "aio-3588sjd4-cam-dcphy-8ms1m.dtsi"
-
-// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
-/*
- * Copyright (c) 2021 T-chip Firefly Electronics Co., Ltd.
- *
- */
 
 #include "rk3588-firefly-port.dtsi"
 
 / {
-	model = "Firefly CS-A1-N8S-3588s-jd4-main HDMI(Linux)";
+	model = "Firefly CS-A1-N8S-rk3588s-jd4 HDMI(Linux)";
 	compatible = "rockchip,aio-3588sjd4", "rockchip,rk3588";
-};
 
-
-// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
-/*
- * Copyright (c) 2021 T-chip Firefly Electronics Co., Ltd.
- *
- */
-
-#include "rk3588-firefly-port.dtsi"
-
-/ {
 	chosen: chosen {
 		bootargs = "earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 irqchip.gicv3_pseudo_nmi=0 root=PARTLABEL=rootfs rootfstype=ext4 ro rootwait overlayroot=device:dev=PARTLABEL=userdata,fstype=ext4,mkfs=1 coherent_pool=1m systemd.gpt_auto=0 cgroup_enable=memory swapaccount=1";
 	};
-	firefly_leds: leds {
-		// pinctrl-names = "default";
-		// pinctrl-0 =<&leds_gpio>;
-		// power_led: power {
-		// 	gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;//blue led
-		// };
 
-		// user_led: user {
-		// 	gpios = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;//red led
-		// };
+	vcc_fan_ctl: vcc-fan-ctl-regulator {
+			compatible = "regulator-fixed";
+			regulator-name = "vcc_fan_ctl";
+			regulator-always-on;
+			enable-active-high;
+			status = "okay";
+			gpio = <&gpio3 RK_PC4 GPIO_ACTIVE_HIGH>;
 	};
-
-        // vcc_4g_pwren: vcc-4g-pwren-regulator {
-        //         compatible = "regulator-fixed";
-        //         regulator-name = "vcc_4g_pwren";
-        //         regulator-always-on;
-        //         enable-active-high;
-        //         status = "okay";
-        //         gpio = <&pca9555 PCA_IO1_4 GPIO_ACTIVE_HIGH>;
-        // };
-
-        vcc_fan_ctl: vcc-fan-ctl-regulator {
-                compatible = "regulator-fixed";
-                regulator-name = "vcc_fan_ctl";
-                regulator-always-on;
-                enable-active-high;
-                status = "okay";
-                gpio = <&gpio3 RK_PC4 GPIO_ACTIVE_HIGH>;
-        };
 
 	vcc_3v3_sd_s0: vcc-3v3-sd-s0 {
 		compatible = "regulator-fixed";
@@ -79,58 +39,10 @@
 		};
 	};
 
-    // vcc_3v0_sata: vcc-3v0-sata-regulator {
-    //     compatible = "regulator-fixed";
-    //     regulator-name = "vcc_3v0_sata";
-    //     regulator-always-on;
-    //     enable-active-high;
-    //     status = "okay";
-    //     gpio = <&pca9555 PCA_IO0_0 GPIO_ACTIVE_HIGH>;
-    // };
-
-
-    // gl3321g: gl3321g-pwr-gpio {
-    //     compatible = "firefly,gl3321g-gpio";
-    //     firefly-mdelay = <500>;
-    //     firefly-gl3321g-gpio = <&pca9555 PCA_IO1_5 GPIO_ACTIVE_HIGH>;
-    //     status = "okay";
-    // };
-
-
-        // wireless_bluetooth: wireless-bluetooth {
-        //         compatible = "bluetooth-platdata";
-        //         clocks = <&hym8563>;
-        //         clock-names = "ext_clock";
-        //         uart_rts_gpios = <&gpio3 RK_PD2 GPIO_ACTIVE_LOW>;
-        //         pinctrl-names = "default", "rts_gpio";
-        //         pinctrl-0 = <&uart9m2_rtsn>,  <&bt_reset_gpio>, <&bt_wake_gpio>, <&bt_irq_gpio>;
-        //         pinctrl-1 = <&uart9_gpios>;
-        //         BT,reset_gpio    = <&gpio0 RK_PD0 GPIO_ACTIVE_HIGH>;
-        //         BT,wake_gpio     = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
-        //         BT,wake_host_irq = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
-        //         status = "okay";
-        // };
-
-        // wireless_wlan: wireless-wlan {
-        //         compatible = "wlan-platdata";
-        //         wifi_chip_type = "ap6275p";
-        //         pinctrl-names = "default";
-        //         pinctrl-0 = <&wifi_host_wake_irq>, <&wifi_poweren_gpio>;
-        //         WIFI,host_wake_irq = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
-        //         WIFI,poweren_gpio = <&gpio0 RK_PC7 GPIO_ACTIVE_HIGH>;
-        //         status = "okay";
-        // };
-
 	firefly_wake {
 		compatible = "firefly-wake";
 		status = "okay";
 	};
-};
-
-
-/ {
-	model = "Firefly CS-A1-N8S-rk3588s-jd4 HDMI(Linux)";
-	compatible = "rockchip,aio-3588sjd4", "rockchip,rk3588";
 
 	ds18b20_1 {
 		compatible = "firefly,ds1820";
@@ -306,56 +218,6 @@
 			retain-state-shutdown;
 		};
 
-
-		// SEL_NORMAL_SUB1 {
-		// 	label = "SEL_NORMAL_SUB1";
-		// 	gpios = <&gpio1 RK_PB3 GPIO_ACTIVE_LOW>;	//GPIO1_B3
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB2 {
-		// 	label = "SEL_NORMAL_SUB2";
-		// 	gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;	//GPIO1_B2
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB3 {
-		// 	label = "SEL_NORMAL_SUB3";
-		// 	gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_LOW>;	//GPIO1_A0
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB4 {
-		// 	label = "SEL_NORMAL_SUB4";
-		// 	gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;	//GPIO1_A3
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB5 {
-		// 	label = "SEL_NORMAL_SUB5";
-		// 	gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_LOW>;	//GPIO1_A1
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB6 {
-		// 	label = "SEL_NORMAL_SUB6";
-		// 	gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;	//GPIO1_A2
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB7 {
-		// 	label = "SEL_NORMAL_SUB7";
-		// 	gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_LOW>;	//GPIO1_D3
-		// 	default-state = "on";
-		// };
-
-		// SEL_NORMAL_SUB8 {
-		// 	label = "SEL_NORMAL_SUB8";
-		// 	gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;	//GPIO1_C6
-		// 	default-state = "on";
-		// };
-
-
 		BUZZER {
 			//BMC LED
 			label = "BUZZER";
@@ -380,47 +242,6 @@
 	status = "okay";
 };
 
-// &rgmii_phy1 {
-// 	led_status_value = <0x6940>;//0x6940
-// };
-
-
-// //FAN1 PWM8_M2
-// &pwm8 {
-// 	pinctrl-0 = <&pwm8m2_pins>;
-// 	status = "okay";
-// };
-
-// //FAN2 PWM9_M2
-// &pwm9 {
-// 	pinctrl-0 = <&pwm9m2_pins>;
-// 	status = "okay";
-// };
-
-// //FAN3 PWM11_IR_M3
-// &pwm11 {
-// 	pinctrl-0 = <&pwm11m3_pins>;
-// 	status = "okay";
-// };
-
-// //FAN4 PWM7_IR_M0
-// &pwm7 {
-// 	pinctrl-0 = <&pwm7m0_pins>;
-// 	status = "okay";
-// };
-
-// //FAN5 PWM0_M0
-// &pwm0 {
-// 	pinctrl-0 = <&pwm0m0_pins>;
-// 	status = "okay";
-// };
-
-// //FAN6 PWM6_M0
-// &pwm6 {
-// 	pinctrl-0 = <&pwm6m0_pins>;
-// 	status = "okay";
-// };
-
 &i2c2 {
 	status = "okay";
  };
@@ -428,56 +249,6 @@
 &power_led {
 	gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
 };
-
-
-
-// /* es8323 audio codec */
-// &es8388_sound {
-// 	status = "okay";
-// 	compatible = "firefly,multicodecs-card";
-// 	rockchip,card-name = "rockchip-es8388";
-// 	hp-det-gpio = <&gpio1 RK_PC0 GPIO_ACTIVE_LOW>;
-// 	hp-con-gpio = <&gpio3 RK_PC0 GPIO_ACTIVE_HIGH>;
-// 	io-channels = <&saradc 4>;
-// 	io-channel-names = "adc-detect";
-// 	spk-con-gpio = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
-// 	rockchip,cpu = <&i2s0_8ch>;
-// 	rockchip,codec = <&es8388_1>;
-// 	rockchip,audio-routing =
-// 			"Headphone", "LOUT1",
-// 			"Headphone", "ROUT1",
-// 			"Speaker", "LOUT2",
-// 			"Speaker", "ROUT2",
-// 			"Headphone", "Headphone Power",
-// 			"Headphone", "Headphone Power",
-// 	                "Speaker", "Speaker Power",
-// 	                "Speaker", "Speaker Power",
-// 			"LINPUT1", "Main Mic",
-// 			"LINPUT2", "Main Mic",
-// 			"RINPUT1", "Headset Mic",
-// 			"RINPUT2", "Headset Mic";
-// 	linein-type = <2>;
-// 	pinctrl-names = "default";
-// 	pinctrl-0 = <&hp_det>;
-// };
-
-// &i2c7 {
-//         status = "okay";
-//         pinctrl-names = "default";
-//         pinctrl-0 = <&i2c7m0_xfer>;
-//         es8388_1: es8388_1@11 {
-// 		status = "okay";
-//                 #sound-dai-cells = <0>;
-//                 compatible = "everest,es8388", "everest,es8323";
-//                 reg = <0x11>;
-//                 clocks = <&cru I2S0_8CH_MCLKOUT>;
-//                 clock-names = "mclk";
-//                 assigned-clocks = <&cru I2S0_8CH_MCLKOUT>;
-//                 assigned-clock-rates = <12288000>;
-//                 pinctrl-names = "default";
-//                 pinctrl-0 = <&i2s0_mclk>;
-//         };
-// };
 
 &i2s0_8ch{
 	status = "disabled";
