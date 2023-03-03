@@ -726,20 +726,16 @@ static int rockchip_canfd_err(struct net_device *ndev, u32 isr)
 	txerr = rockchip_canfd_read(rcan, CAN_TX_ERR_CNT);
 	sta_reg = rockchip_canfd_read(rcan, CAN_STATE);
 
-	if (skb) {
-		cf->data[6] = txerr;
-		cf->data[7] = rxerr;
-	}
-
 	if (isr & BUS_OFF_INT || sta_reg & 0x20) {
 		spin_lock(&rcan->tx_lock);
 		rcan->can.state = CAN_STATE_BUS_OFF;
 		spin_unlock(&rcan->tx_lock);
 		rcan->can.can_stats.bus_off++;
-		if (skb)
+		if (likely(skb))
 			cf->can_id |= CAN_ERR_BUSOFF;
 		rockchip_canfd_write(rcan, CAN_MODE, 0);
 		cancel_delayed_work(&rcan->tx_err_work);
+        rockchip_canfd_write(rcan, CAN_INT, 0xFF);
 		can_bus_off(ndev);
 	} else if (isr & ERR_WARN_INT) {
 		rcan->can.can_stats.error_warning++;
@@ -750,24 +746,22 @@ static int rockchip_canfd_err(struct net_device *ndev, u32 isr)
 			cf->data[1] = (txerr > rxerr) ?
 				CAN_ERR_CRTL_TX_WARNING :
 				CAN_ERR_CRTL_RX_WARNING;
-			cf->data[6] = txerr;
-			cf->data[7] = rxerr;
 		}
 	} else if (isr & PASSIVE_ERR_INT) {
 		rcan->can.can_stats.error_passive++;
 		rcan->can.state = CAN_STATE_ERROR_PASSIVE;
 		/* error passive state */
-		if (skb) {
+		if (likely(skb)) {
 			cf->can_id |= CAN_ERR_CRTL;
 			cf->data[1] = (txerr > rxerr) ?
 					CAN_ERR_CRTL_TX_WARNING :
 					CAN_ERR_CRTL_RX_WARNING;
-			cf->data[6] = txerr;
-			cf->data[7] = rxerr;
 		}
 	}
 
-	if (skb) {
+	if (likely(skb)) {
+		cf->data[6] = txerr;
+		cf->data[7] = rxerr;
 		stats->rx_packets++;
 		stats->rx_bytes += cf->can_dlc;
 		netif_rx(skb);
@@ -882,8 +876,7 @@ static int rockchip_canfd_close(struct net_device *ndev)
 
 	netif_stop_queue(ndev);
 	rockchip_canfd_stop(ndev);
-	cancel_delayed_work(&rcan->tx_err_work);
-	flush_delayed_work(&rcan->tx_err_work);
+	cancel_delayed_work_sync(&rcan->tx_err_work);
 	close_candev(ndev);
 	can_led_event(ndev, CAN_LED_EVENT_STOP);
 	pm_runtime_put(rcan->dev);
@@ -915,8 +908,7 @@ static int __maybe_unused rockchip_canfd_suspend(struct device *dev)
 		netif_stop_queue(ndev);
 		netif_device_detach(ndev);
 		rockchip_canfd_stop(ndev);
-		cancel_delayed_work(&rcan->tx_err_work);
-		flush_delayed_work(&rcan->tx_err_work);
+		cancel_delayed_work_sync(&rcan->tx_err_work);
 	}
 
 	return pm_runtime_force_suspend(dev);
