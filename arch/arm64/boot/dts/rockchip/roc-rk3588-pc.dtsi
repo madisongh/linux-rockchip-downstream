@@ -20,6 +20,57 @@
 		fan-supply = <&vcc5v0_sys>;
 		pwms = <&pwm15 0 50000 1>;
 	};
+	/*For ext board public overlay -> start*/
+	reset_ctrl_4_5g: reset-ctrlt_4_5g {		/* on ext board */
+		status = "disabled";
+	};
+	vcc3v3_sys_ext: vcc3v3-sys-ext {		/* on ext board */
+		status = "disabled";
+	};
+	vcc5v0_sys_ext: vcc5v0-sys-ext {		/* on ext board */
+		status = "disabled";
+	};
+	vcc3v8_4g_ext: vcc3v8-4g-ext {			/* on ext board */
+		status = "disabled";
+	};
+	/*For ext board public overlay <- end*/
+
+	/*For ext-usb3 board overlay -> start*/
+	vcc_hub3_reset_ext: vcc-hub3-reset-ext {	/* on ext board */
+		status = "disabled";
+	};
+	usb3_host_ext: usb3-host-ext {	/* on ext board */
+		status = "disabled";
+	};
+	/*For ext-usb3 board overlay <- end*/
+
+
+	/*For ext-switch board overlay -> start*/
+	dvddio_rtl8367n_power_ext: dvddio-rtl8367n-power-ext {	/* on ext board */
+		status = "disabled";
+	};
+	avddl_rtl8367n_power_ext: avddl-rtl8367n-power-ext {	/* on ext board */
+		status = "disabled";
+	};
+	/*For ext-switch board overlay <- end*/
+
+	/*For bp-dsi display overlay -> start*/
+	backlight: backlight {
+		status = "disabled";
+	};
+	/*For bp-dsi display overlay <- end*/
+
+};
+
+&firefly_leds{
+	power_debug_led: power-debug {
+		label = ":power-debug";
+		linux,default-trigger = "ir-power-debug-click";
+		default-state = "on";
+		gpios = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_power_debug>;
+	};
 };
 
 /* FAN */
@@ -160,6 +211,19 @@
 	connect = <&vp1_out_hdmi1>;
 };
 
+&display_subsystem {
+       clocks = <&hdptxphy_hdmi_clk0>, <&hdptxphy_hdmi_clk1>;
+       clock-names = "hdmi0_phy_pll", "hdmi1_phy_pll";
+};
+
+&hdptxphy_hdmi_clk0 {
+       status = "okay";
+};
+
+&hdptxphy_hdmi_clk1 {
+       status = "okay";
+};
+
 /*ap6275 : bluetooth*/
 &wireless_bluetooth{
 	status = "okay";
@@ -189,7 +253,7 @@
 
 /* gamc0 */
 &gmac0 {
-	snps,reset-gpio = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
+	snps,reset-gpio = <&gpio1 RK_PA4 GPIO_ACTIVE_LOW>;
 	tx_delay = <0x47>;
 	status = "okay";
 };
@@ -425,6 +489,9 @@
 		};
 		led_user: led-user{
 			rockchip,pins = <4 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+		led_power_debug: led-power-debug {
+				rockchip,pins = <1 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
  	};
 
