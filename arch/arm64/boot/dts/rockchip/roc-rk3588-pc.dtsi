@@ -12,6 +12,17 @@
 	chosen: chosen {
 		bootargs = "earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 irqchip.gicv3_pseudo_nmi=0 root=PARTLABEL=rootfs rootfstype=ext4 ro rootwait overlayroot=device:dev=PARTLABEL=userdata,fstype=ext4,mkfs=1 coherent_pool=1m systemd.gpt_auto=0 cgroup_enable=memory swapaccount=1 libata.force=3.0G";
 	};
+	/* "Check-Version" is for compatible with multiple devices. Delete it if you do not need it */
+	check_version: check-version {
+		compatible = "check-version";
+		dtb-name = "roc-rk3588-pc";
+		u-boot,dm-pre-reloc;
+		io-channels = <&saradc 2>;
+		version-num = <3>;
+		version-adc-range0 = <1950 2150>;
+		version-dtb-path0 = "ext-vga-v11";
+		//status = "disabled";
+	};
 
 	/* FAN */
 	fan: pwm-fan {
