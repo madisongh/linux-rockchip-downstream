@@ -12,6 +12,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -147,6 +148,10 @@ static void _fusb302_log(struct fusb302_chip *chip, const char *fmt,
 	}
 
 	vsnprintf(tmpbuffer, sizeof(tmpbuffer), fmt, args);
+
+#ifdef FUSB302_DEBUG
+	pr_info("fusb302: %s\n", tmpbuffer);
+#endif
 
 	mutex_lock(&chip->logbuffer_lock);
 
@@ -389,12 +394,26 @@ static int fusb302_set_power_mode(struct fusb302_chip *chip, u8 power_mode)
 	return ret;
 }
 
+static int fusb302_rx_fifo_is_empty(struct fusb302_chip *chip)
+{
+	u8 data;
+
+	return (fusb302_i2c_read(chip, FUSB_REG_STATUS1, &data) > 0) &&
+		(data & FUSB_REG_STATUS1_RX_EMPTY);
+}
+
 static int tcpm_init(struct tcpc_dev *dev)
 {
 	struct fusb302_chip *chip = container_of(dev, struct fusb302_chip,
 						 tcpc_dev);
 	int ret = 0;
 	u8 data;
+	bool pre_inited;
+
+	ret = fusb302_i2c_read(chip, FUSB_REG_POWER, &data);
+	if (ret < 0)
+	       return ret;
+	pre_inited = data == 0x01 ? false : true;
 
 	ret = fusb302_sw_reset(chip);
 	if (ret < 0)
@@ -411,7 +430,7 @@ static int tcpm_init(struct tcpc_dev *dev)
 	ret = fusb302_i2c_read(chip, FUSB_REG_STATUS0, &data);
 	if (ret < 0)
 		return ret;
-	chip->vbus_present = !!(data & FUSB_REG_STATUS0_VBUSOK);
+	chip->vbus_present = pre_inited ? true : !!(data & FUSB_REG_STATUS0_VBUSOK);
 	ret = fusb302_i2c_read(chip, FUSB_REG_DEVICE_ID, &data);
 	if (ret < 0)
 		return ret;
@@ -1479,6 +1498,10 @@ static irqreturn_t fusb302_irq_intn(int irq, void *dev_id)
 	struct fusb302_chip *chip = dev_id;
 	unsigned long flags;
 
+#ifdef FUSB302_DEBUG
+	pr_info("fusb302: irq_intn\n");
+#endif
+
 	/* Disable our level triggered IRQ until our irq_work has cleared it */
 	disable_irq_nosync(chip->gpio_int_n_irq);
 
@@ -1594,12 +1617,7 @@ static void fusb302_irq_work(struct kthread_work *work)
 
 	if (interrupta & FUSB_REG_INTERRUPTA_TX_SUCCESS) {
 		fusb302_log(chip, "IRQ: PD tx success");
-		ret = fusb302_pd_read_message(chip, &pd_msg);
-		if (ret < 0) {
-			fusb302_log(chip,
-				    "cannot read in PD message, ret=%d", ret);
-			goto done;
-		}
+		tcpm_pd_transmit_complete(chip->tcpm_port, TCPC_TX_SUCCESS);
 	}
 
 	if (interrupta & FUSB_REG_INTERRUPTA_HARDRESET) {
@@ -1614,11 +1632,15 @@ static void fusb302_irq_work(struct kthread_work *work)
 
 	if (interruptb & FUSB_REG_INTERRUPTB_GCRCSENT) {
 		fusb302_log(chip, "IRQ: PD sent good CRC");
-		ret = fusb302_pd_read_message(chip, &pd_msg);
-		if (ret < 0) {
-			fusb302_log(chip,
-				    "cannot read in PD message, ret=%d", ret);
-			goto done;
+
+		while (!fusb302_rx_fifo_is_empty(chip)) {
+			memset(&pd_msg, 0, sizeof(struct pd_message));
+			ret = fusb302_pd_read_message(chip, &pd_msg);
+			if (ret < 0) {
+				fusb302_log(chip,
+					    "cannot read in PD message, ret=%d", ret);
+				goto done;
+			}
 		}
 	}
 done:
