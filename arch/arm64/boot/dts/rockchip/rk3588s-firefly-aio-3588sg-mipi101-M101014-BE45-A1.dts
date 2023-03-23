@@ -12,6 +12,6 @@
 #include "rk3588s-firefly-aio-3588sg-edp-NV156FHM-T06.dtsi"
 
 / {
-	model = "Firefly AIO-RK3588SG MIPI(Linux)";
+	model = "Firefly AIO-3588SG MIPI(Linux)";
 	compatible = "rockchip,rk3588s-firefly-aio-3588sg", "rockchip,rk3588";
 };
