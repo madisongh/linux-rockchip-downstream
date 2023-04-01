@@ -135,7 +135,7 @@
 };
 
 &route_hdmi0{
-    status = "disabled";
+    status = "okay";
 };
 /*
 &lcd_rst{
@@ -285,7 +285,7 @@
 };
 
 &route_hdmi0{
-    status = "disabled";
+    status = "okay";
 };
 /*
 &lcd_rst {
