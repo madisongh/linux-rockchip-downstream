@@ -91,7 +91,7 @@
 		hp-con-gpio = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
 		linein-type = <0>;
 		rockchip,format = "i2s";
-		rockchip,mclk-fs = <256>;
+		rockchip,mclk-fs = <384>;
 		rockchip,cpu = <&i2s0_8ch>;
 		rockchip,codec = <&es8388>;
 		rockchip,audio-routing =
