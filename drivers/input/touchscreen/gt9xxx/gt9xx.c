@@ -35,7 +35,7 @@ struct i2c_client * i2c_connect_client = NULL;
 int gtp_pwr_gpio;
 int gtp_rst_gpio;
 int gtp_int_gpio;
-bool firefly_int_type = false;
+bool touch_read_type = false;
 struct goodix_ts_data *gts;
 u8 config[GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH]
                 = {GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff};
@@ -1149,6 +1149,7 @@ Output:
     Handle Result.
         IRQ_HANDLED: interrupt handled successfully
 *********************************************************/
+#if 0
 static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 {
     struct goodix_ts_data *ts = dev_id;
@@ -1161,6 +1162,7 @@ static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
     
     return IRQ_HANDLED;
 }
+#endif
 /*******************************************************
 Function:
     Synchronization.
@@ -1836,44 +1838,42 @@ static s8 gtp_request_io_port(struct goodix_ts_data *ts)
     s32 ret = 0;
 
     GTP_DEBUG_FUNC();
-    printk("lzf debug %s-%d\n",__func__,__LINE__);
-    printk("lzf debug %s-%d gtp_int_gpio = %d \n",__func__,__LINE__,gtp_int_gpio);
+
     ret = GTP_GPIO_REQUEST(gtp_int_gpio, "GTP int gpio");
     if (ret < 0) 
-    {printk("lzf debug %s-%d ret = %d \n",__func__,__LINE__,ret);
+    {
         GTP_ERROR("Failed to request GPIO:%d, ERRNO:%d", (s32)gtp_int_gpio, ret);
         ret = -ENODEV;
     }
     else
-    {printk("lzf debug %s-%d\n",__func__,__LINE__);
+    {
         GTP_GPIO_AS_INT(gtp_int_gpio);
         ts->client->irq = gpio_to_irq(gtp_int_gpio);
     }
-    printk("lzf debug %s-%d gtp_rst_gpio = %d \n",__func__,__LINE__,gtp_rst_gpio);
+
     ret = GTP_GPIO_REQUEST(gtp_rst_gpio, "GTP rst gpio");
     if (ret < 0) 
-    {printk("lzf debug %s-%d ret = %d \n",__func__,__LINE__,ret);
+    {
         GTP_ERROR("Failed to request GPIO:%d, ERRNO:%d",(s32)gtp_rst_gpio,ret);
         ret = -ENODEV;
     }
-    printk("lzf debug %s-%d\n",__func__,__LINE__);
+    
     if (gpio_is_valid(gtp_pwr_gpio)) {
         ret = GTP_GPIO_REQUEST(gtp_pwr_gpio, "GTP pwr gpio");
-        if (ret < 0) {printk("lzf debug %s-%d\n",__func__,__LINE__);
+        if (ret < 0) {
             GTP_ERROR("Failed to request GPIO:%d, ERRNO:%d",(s32)gtp_pwr_gpio,ret);
             ret = -ENODEV;
-        } else {printk("lzf debug %s-%d\n",__func__,__LINE__);
+        } else {
          GTP_GPIO_OUTPUT(gtp_pwr_gpio, 1);
         }
     }
-    printk("lzf debug %s-%d\n",__func__,__LINE__);
+
     GTP_GPIO_AS_INPUT(gtp_rst_gpio);
-    printk("lzf debug %s-%d\n",__func__,__LINE__);
+
     gtp_reset_guitar(ts->client, 20);
     
     if(ret < 0)
     {
-        printk("lzf debug %s-%d\n",__func__,__LINE__);
         GTP_GPIO_FREE(gtp_pwr_gpio);
         GTP_GPIO_FREE(gtp_rst_gpio);
         GTP_GPIO_FREE(gtp_int_gpio);
@@ -1887,8 +1887,9 @@ static irqreturn_t goodix_irq_handle_thread(int irq, void *devid)
     struct goodix_ts_data *ts = devid;
     queue_work(goodix_wq, &ts->work);
 
-   return IRQ_HANDLED;
+    return IRQ_HANDLED;
 }
+
 /*******************************************************
 Function:
     Request interrupt.
@@ -1901,22 +1902,15 @@ Output:
 static s8 gtp_request_irq(struct goodix_ts_data *ts)
 {
     s32 ret = -1;
-    const u8 irq_table[] = GTP_IRQ_TAB;
 
     GTP_DEBUG_FUNC();
     GTP_DEBUG("INT trigger type:%x", ts->int_trigger_type);
-    if(firefly_int_type)
-            ret = request_threaded_irq(ts->client->irq,NULL,
+    if(touch_read_type)
+    ret = request_threaded_irq(ts->client->irq,NULL,
                     goodix_irq_handle_thread,
-                    irq_table[ts->int_trigger_type]|IRQF_ONESHOT,
+                    IRQ_TYPE_LEVEL_LOW|IRQF_ONESHOT,
                     ts->client->name,
                     ts);
-    else
-            ret  = request_irq(ts->client->irq, 
-                       goodix_ts_irq_handler,
-                       irq_table[ts->int_trigger_type],
-                       ts->client->name,
-                       ts);
     if (ret)
     {
         GTP_ERROR("Request IRQ failed!ERRNO:%d.", ret);
@@ -2466,8 +2460,7 @@ static void gtp_parse_dt(struct device *dev, struct goodix_ts_data *ts)
 	gtp_int_gpio = of_get_named_gpio(np, "goodix,irq-gpio", 0);
 	gtp_rst_gpio = of_get_named_gpio(np, "goodix,rst-gpio", 0);
     gtp_pwr_gpio = of_get_named_gpio(np, "goodix,pwr-gpio", 0);
-	
-    firefly_int_type = of_property_read_bool(np, "firefly-int-thread");
+    touch_read_type = of_property_read_bool(np, "read-tp-thread");
 	if (of_property_read_u32(np, "flip-x", &ts->flip_x) < 0)
 		ts->flip_x = 0;
 

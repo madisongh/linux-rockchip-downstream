@@ -68,6 +68,9 @@
 #define PCA957X_TYPE		BIT(13)
 #define PCA_TYPE_MASK		GENMASK(15, 12)
 
+#define RESUME_ST  0x80000000
+#define SUSPEND_ST 0x40000000
+
 #define PCA_CHIP_TYPE(x)	((x) & PCA_TYPE_MASK)
 
 static const struct i2c_device_id pca953x_id[] = {
@@ -192,6 +195,10 @@ struct pca953x_chip {
 	unsigned gpio_start;
 	struct mutex i2c_lock;
 	struct regmap *regmap;
+
+	int suspend_io_state;
+	int resume_io_state;
+	int hold_io_state;
 
 #ifdef CONFIG_GPIO_PCA953X_IRQ
 	struct mutex irq_lock;
@@ -946,6 +953,7 @@ static int pca953x_probe(struct i2c_client *client,
 	struct pca953x_chip *chip;
 	int irq_base = 0;
 	int ret;
+	int value;
 	u32 invert = 0;
 	struct regulator *reg;
 	const struct regmap_config *regmap_config;
@@ -983,6 +991,35 @@ static int pca953x_probe(struct i2c_client *client,
 						     GPIOD_OUT_LOW);
 		if (IS_ERR(reset_gpio))
 			return PTR_ERR(reset_gpio);
+	}
+
+	ret = of_property_read_u32(node, "suspend-io-state", &value);
+	if (ret) {
+		dev_err(dev, "Can not read pca953x_suspend_io_state");
+		chip->suspend_io_state = 0;
+	} else {
+		chip->suspend_io_state = 0xffff & value;
+		dev_info(dev, "suspend_io_state is 0x%x", chip->suspend_io_state);
+		chip->suspend_io_state |= SUSPEND_ST;
+	}
+
+	ret = of_property_read_u32(node, "resume-io-state", &value);
+	if (ret) {
+		dev_err(dev, "Can not read pca953x_resume_io_state");
+		chip->resume_io_state = 0;
+	} else {
+		chip->resume_io_state  = 0xffff & value;
+		dev_info(dev, "resume_io_state is 0x%x", chip->resume_io_state);
+		chip->resume_io_state |= RESUME_ST;
+	}
+
+	ret = of_property_read_u32(node, "hold-io-state", &value);
+	if (ret) {
+		dev_err(dev, "Can not read pca953x_hold_io_state");
+		chip->hold_io_state = 0;
+	} else {
+		chip->hold_io_state = 0xffff & value;
+		dev_info(dev, "hold_io_state is 0x%x", chip->hold_io_state);
 	}
 
 	chip->client = client;
@@ -1029,7 +1066,7 @@ static int pca953x_probe(struct i2c_client *client,
 		ret = PTR_ERR(chip->regmap);
 		goto err_exit;
 	}
-
+	
 	regcache_mark_dirty(chip->regmap);
 
 	mutex_init(&chip->i2c_lock);
@@ -1131,7 +1168,18 @@ static int pca953x_regcache_sync(struct device *dev)
 		dev_err(dev, "Failed to sync GPIO out registers: %d\n", ret);
 		return ret;
 	}
-
+	ret = regcache_sync_region(chip->regmap, chip->regs->input,
+				   chip->regs->output + NBANK(chip));
+	if (ret) {
+		dev_err(dev, "Failed to sync GPIO out registers: %d\n", ret);
+		return ret;
+	}
+	ret = regcache_sync_region(chip->regmap, chip->regs->invert,
+				   chip->regs->output + NBANK(chip));
+	if (ret) {
+		dev_err(dev, "Failed to sync GPIO out registers: %d\n", ret);
+		return ret;
+	}
 #ifdef CONFIG_GPIO_PCA953X_IRQ
 	if (chip->driver_data & PCA_PCAL) {
 		ret = regcache_sync_region(chip->regmap, PCAL953X_IN_LATCH,
@@ -1155,17 +1203,84 @@ static int pca953x_regcache_sync(struct device *dev)
 	return 0;
 }
 
+static u8 firefly_pca953x[PCA953X_DIRECTION][MAX_BANK];
 static int pca953x_suspend(struct device *dev)
 {
 	struct pca953x_chip *chip = dev_get_drvdata(dev);
+	if(chip->suspend_io_state & SUSPEND_ST)
+	{
+		mutex_lock(&chip->i2c_lock);
+		{
+			int i,j,ret;
+			for(i = PCA953X_INPUT; i<= PCA953X_DIRECTION; i++){
+				u8 regaddr = pca953x_recalc_addr(chip, i, 0);
+				u8 value[MAX_BANK];
 
-	regcache_cache_only(chip->regmap, true);
+				ret = regmap_bulk_read(chip->regmap, regaddr, value, NBANK(chip));
+				if (ret < 0) {
+					dev_err(&chip->client->dev, "failed reading register\n");
+					return ret;
+				}
+				/* restore the value of firefly_pca953xxxx */
+				firefly_pca953x[i][0] = value[0];
+				firefly_pca953x[i][1] = value[1];
+				if(i == PCA953X_OUTPUT){
+					value[0] = 0x00ff & chip->suspend_io_state ;
+					value[1] = 0x00ff & chip->suspend_io_state >> 8;
 
-	if (atomic_read(&chip->wakeup_path))
+					if(chip->hold_io_state)
+					{
+						for(j = 0; j < 16 ; j++)
+						{
+							if(0x1 & (chip->hold_io_state >> j))
+							{
+								if(j < 8)
+								{
+									value[0] &= ~(0x1<<j) ;
+									value[0] |= firefly_pca953x[PCA953X_OUTPUT][0] & (0x1<<j);
+								}else{
+									value[1] &= ~(0x1<<(j-8)) ;
+									value[1] |= firefly_pca953x[PCA953X_OUTPUT][1] & (0x1<<(j-8));
+								}
+							}
+						}
+					}
+
+					ret = regmap_bulk_write(chip->regmap, regaddr, value, NBANK(chip));
+				
+					if (ret < 0) {
+						dev_err(&chip->client->dev, "failed writing register\n");
+						return ret;
+					}				
+				}
+			}
+		}
+	/*
+	{
+		int i,ret;
+		for(i = PCA953X_INPUT; i<= PCA953X_DIRECTION; i++){
+			u8 regaddr = pca953x_recalc_addr(chip, i, 0);
+			u8 value[MAX_BANK];
+			ret = regmap_bulk_read(chip->regmap, regaddr, value, NBANK(chip));
+			if (ret < 0) {
+				dev_err(&chip->client->dev, "failed reading register\n");
+				return ret;
+			}
+			printk("debug reg_val0=0x%x %s-%d \n",value[0],__func__,__LINE__);
+			printk("debug reg_val1=0x%x %s-%d \n",value[1],__func__,__LINE__);
+		}
+	}*/
+		mutex_unlock(&chip->i2c_lock);
+	}
+	else {
+		regcache_cache_only(chip->regmap, true);
+	}
+
+	if (atomic_read(&chip->wakeup_path)){
 		device_set_wakeup_path(dev);
-	else
+	}else{
 		regulator_disable(chip->regulator);
-
+	}
 	return 0;
 }
 
@@ -1175,6 +1290,7 @@ static int pca953x_resume(struct device *dev)
 	int ret;
 
 	if (!atomic_read(&chip->wakeup_path)) {
+
 		ret = regulator_enable(chip->regulator);
 		if (ret) {
 			dev_err(dev, "Failed to enable regulator: %d\n", ret);
@@ -1182,18 +1298,78 @@ static int pca953x_resume(struct device *dev)
 		}
 	}
 
-	regcache_cache_only(chip->regmap, false);
-	regcache_mark_dirty(chip->regmap);
-	ret = pca953x_regcache_sync(dev);
-	if (ret)
-		return ret;
+	if(chip->resume_io_state & RESUME_ST)
+	{
+		mutex_lock(&chip->i2c_lock);
+		{
+			int  i,j,ret;
+			for (i=1 ; i<= PCA953X_DIRECTION; i++){
+				u8 regaddr = pca953x_recalc_addr(chip, i, 0);
+				u8 value[MAX_BANK];
+				value[0] = firefly_pca953x[i][0];
+				value[1] = firefly_pca953x[i][1];
+				if(i == PCA953X_OUTPUT){
+				value[0] = 0x00ff & chip->resume_io_state;
+				value[1] = 0x00ff & chip->resume_io_state >> 8;
 
-	ret = regcache_sync(chip->regmap);
-	if (ret) {
-		dev_err(dev, "Failed to restore register map: %d\n", ret);
-		return ret;
+					if(chip->hold_io_state)
+					{
+						for(j = 0; j < 16 ; j++)
+						{
+							if(0x1 & (chip->hold_io_state >> j))
+							{
+								if(j < 8)
+								{
+									value[0] &= ~(0x1<<j) ;
+									value[0] |= firefly_pca953x[PCA953X_OUTPUT][0] & (0x1<<j);
+								}else{
+									value[1] &= ~(0x1<<(j-8)) ;
+									value[1] |= firefly_pca953x[PCA953X_OUTPUT][1] & (0x1<<(j-8));
+								}
+							}
+						}
+					}
+				}
+
+				ret = regmap_bulk_write(chip->regmap, regaddr, value, NBANK(chip));
+			
+				if (ret < 0) {
+					dev_err(&chip->client->dev, "failed writing register\n");
+					return ret;
+				}
+			}
+		}
+			/*{
+				int i,ret;
+				for(i = PCA953X_INPUT; i<= PCA953X_DIRECTION; i++){
+					u8 regaddr = pca953x_recalc_addr(chip, i, 0);
+					u8 value[MAX_BANK];
+					ret = regmap_bulk_read(chip->regmap, regaddr, value, NBANK(chip));
+					if (ret < 0) {
+						dev_err(&chip->client->dev, "failed reading register\n");
+						return ret;
+					}
+					printk("debug reg_val0=0x%x %s-%d \n",value[0],__func__,__LINE__);
+					printk("debug reg_val1=0x%x %s-%d \n",value[1],__func__,__LINE__);
+				}
+			}*/
+			mutex_unlock(&chip->i2c_lock);
 	}
 
+	if(!(chip->resume_io_state & RESUME_ST) && !(chip->suspend_io_state & SUSPEND_ST))
+	{
+		regcache_cache_only(chip->regmap, false);
+		regcache_mark_dirty(chip->regmap);
+		ret = pca953x_regcache_sync(dev);
+		if (ret)
+			return ret;
+
+		ret = regcache_sync(chip->regmap);
+		if (ret) {
+			dev_err(dev, "Failed to restore register map: %d\n", ret);
+			return ret;
+		}
+	}
 	return 0;
 }
 #endif

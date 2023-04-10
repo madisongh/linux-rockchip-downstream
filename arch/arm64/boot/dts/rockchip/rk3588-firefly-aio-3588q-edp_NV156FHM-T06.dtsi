@@ -3,8 +3,8 @@
  * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
  *
  */
- / {
-    /*
+/ {
+/*
     vcc_edp_power: vcc-edp-power-regulator {
         compatible = "regulator-fixed";
         enable-active-high;
@@ -19,13 +19,13 @@
 			regulator-off-in-suspend;
 		};
    };
- */
+*/
     edp_panel: edp-panel {
         compatible = "simple-panel";
         status = "okay";
 		// enable-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_HIGH>;
         //bus-format = <MEDIA_BUS_FMT_RBG888_1X24>;
-        backlight = <&backlight>;
+        backlight = <&backlight_edp>;
 		//enable-gpios = <&pca9555_1 PCA_IO0_1 GPIO_ACTIVE_HIGH>;
 		pwr-gpios = <&pca9555_1 PCA_IO0_1 GPIO_ACTIVE_HIGH>;
 		pwr-delay-ms = <200>;
@@ -56,7 +56,7 @@
         };
     };
 
-    backlight: backlight {
+    backlight_edp: backlight-edp {
         status = "okay";
         compatible = "pwm-backlight";
         //enable-gpios = <&pca9555_1 PCA_IO0_2 GPIO_ACTIVE_HIGH>; // EDP_BL_EN
@@ -147,7 +147,6 @@
 
 &i2c1{
     status = "okay";
-
     goodix_ts@5d {
         status = "okay";
         compatible = "goodix,gt9xxx";
@@ -157,11 +156,11 @@
 		//interrupts = <PCA_IO1_6 IRQ_TYPE_LEVEL_HIGH>;
         goodix,pwr-gpio = <&pca9555_1 PCA_IO0_0 GPIO_ACTIVE_HIGH>;
         goodix,rst-gpio = <&pca9555_1 PCA_IO1_7 GPIO_ACTIVE_HIGH>;
-        goodix,irq-gpio = <&pca9555_1 PCA_IO1_6 IRQ_TYPE_LEVEL_LOW>;
+        goodix,irq-gpio = <&gpio2 RK_PC3 IRQ_TYPE_LEVEL_LOW>;
         flip-x = <0>;
         flip-y = <0>;
-		firefly-int-thread;//for pca9555
-
+        //If read-tp-thread is defined, interrupt method is used to read tp data; otherwise, polling method is used
+        read-tp-thread;
 		goodix,cfg-group2 = [
             5a 00 40 80 25 0a 7d 00 01 08 
             28 05 5f 32 03 05 00 00 00 00 
