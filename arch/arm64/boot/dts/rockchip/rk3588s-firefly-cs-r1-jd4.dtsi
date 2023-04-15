@@ -25,7 +25,7 @@
 		};
 	};
 
-    vcc_3v3_sd_s0: vcc-3v3-sd-s0 {                                                                                                                                      
+    vcc_3v3_sd_s0: vcc-3v3-sd-s0 {
         compatible = "regulator-fixed";
         regulator-name = "vcc_3v3_sd_s0";
         regulator-min-microvolt = <3300000>;
@@ -40,7 +40,7 @@
         };
     };
 
-    wdt_pwr: wdt-pwr-regulator {                                                   
+    wdt_pwr: wdt-pwr-regulator {
         compatible = "regulator-fixed";
         enable-active-high;
         regulator-always-on;
@@ -88,10 +88,10 @@
        dr_mode = "peripheral";
        phys = <&u2phy0_otg>;
        phy-names = "usb2-phy";
-       maximum-speed = "high-speed";                                                                                                                                    
+       maximum-speed = "high-speed";
 };
 
-/* hdmi0 */                                                                                                                                                             
+/* hdmi0 */
 &hdmi0 {
     enable-gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
     status = "okay";
@@ -115,7 +115,7 @@
 
 &sdmmc {
     status = "okay";
-    vmmc-supply = <&vcc_3v3_sd_s0>;                                                                                                                                     
+    vmmc-supply = <&vcc_3v3_sd_s0>;
 };
 
 &gmac1{
@@ -136,6 +136,8 @@
         compatible = "firefly,pc9202";
         reg = <0x3c>;
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&pc9202_en_pin>;
         wd-en-gpio = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
     };
 
@@ -219,6 +221,14 @@
 
 
 &pinctrl {
+
+
+	wdt {
+		pc9202_en_pin: pc9202-en-pin {
+			rockchip,pins = <4 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	leds {
 		led_user: led-user {
 			rockchip,pins = <4 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>;
@@ -248,7 +258,7 @@
 	};
 
     wdt-pwr {
-        wdt_pwr_drv: wdt-pwr-drv {                                                 
+        wdt_pwr_drv: wdt-pwr-drv {
             rockchip,pins = <4 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
         };
     };
