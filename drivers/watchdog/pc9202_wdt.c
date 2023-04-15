@@ -10,6 +10,7 @@
  */
 
 
+#include <linux/types.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -44,6 +45,9 @@
 #define WDT_KICK_S_2_56				0xd8
 #define WDT_KICK_S_10_24			0xe8
 #define WDT_KICK_S_40_96			0xf8
+#define WDT_KICK_DISABLED			(0x00)
+#define PC9202_VERSION		"firefly 1.0.0   04/15/2023"
+bool iWriteByte(uint8_t addr, uint8_t data);
 
 static unsigned char demoBuffer[16];
 
@@ -58,7 +62,7 @@ static int major;
 static struct class *cls;
 static struct device *dev;
 // int wd_en_gpio;
-struct gpio_desc *wd_en_gpio;
+struct gpio_desc *wd_en_gpio = NULL;
 
 void enable_wdt(void)
 {
@@ -69,6 +73,7 @@ void enable_wdt(void)
 void disable_wdt(void)
 {
 	printk("====== disabled 9202 wdt ======\n");
+	iWriteByte(SW2001_REG_WDT_CTRL,WDT_KICK_DISABLED);
 	gpiod_direction_output(wd_en_gpio, 0);
 }
 
@@ -232,6 +237,8 @@ static int pc9202_wdt_probe(struct i2c_client *client,
 	uint8_t reg_value;
 	int retry_count, ret;
 
+	dev_info(&client->dev, "Version: %s\n", PC9202_VERSION);
+
     if (!of_device_is_available(client->dev.of_node)) {
 		return 0;
     }
@@ -343,6 +350,9 @@ static int __init pc9202_wdt_init(void)
 }
 static void __exit pc9202_wdt_exit(void)
 {
+	if (!IS_ERR(wd_en_gpio) && wd_en_gpio!= NULL) {
+		disable_wdt();
+	}
     i2c_del_driver(&pc9202_wdt_driver);
     return;
 }
