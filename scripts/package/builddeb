@@ -72,7 +72,8 @@ deploy_kernel_headers () {
 		fi
 
 		find arch/arm*/include Module.symvers include scripts -type f
-
+		find . -name Makefile\* -o -name Kconfig\* -o -name \*.pl 
+		find tools/include security/selinux/include -type f -o -type l
 		if is_enabled CONFIG_GCC_PLUGINS; then
 			find scripts/gcc-plugins -name \*.so
 		fi
