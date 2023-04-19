@@ -84,6 +84,15 @@ deploy_kernel_headers () {
 	tar -c -f - -T debian/hdrobjfiles | tar -xf - -C $destdir
 	rm -f debian/hdrsrcfiles debian/hdrobjfiles
 
+	find $destdir -type f | while read file
+	do
+		if file "$file" | grep -q "x86-64"
+		then
+			echo "$file"
+			rm "$file"
+		fi
+	done
+
 	# copy .config manually to be where it's expected to be
 	cp $KCONFIG_CONFIG $destdir/.config
 
