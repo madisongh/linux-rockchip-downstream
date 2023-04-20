@@ -464,6 +464,7 @@ static int rockchip_canfd_stop(struct net_device *ndev)
 	unsigned long flags;
 
 	spin_lock_irqsave(&rcan->tx_lock, flags);
+	netif_stop_queue(ndev);
 	rcan->can.state = CAN_STATE_STOPPED;
 	spin_unlock_irqrestore(&rcan->tx_lock, flags);
 	/* we need to enter reset mode */
@@ -807,8 +808,10 @@ static irqreturn_t rockchip_canfd_interrupt(int irq, void *dev_id)
 		}
 		spin_lock(&rcan->tx_lock);
 		rockchip_canfd_write(rcan, CAN_CMD, 0);
-		can_get_echo_skb(ndev, 0);
-		netif_wake_queue(ndev);
+		if (likely(rcan->can.state < CAN_STATE_BUS_OFF)) {
+			can_get_echo_skb(ndev, 0);
+			netif_wake_queue(ndev);
+		}
 		spin_unlock(&rcan->tx_lock);
 		cancel_delayed_work(&rcan->tx_err_work);
 		can_led_event(ndev, CAN_LED_EVENT_TX);
@@ -874,7 +877,6 @@ static int rockchip_canfd_close(struct net_device *ndev)
 {
 	struct rockchip_canfd *rcan = netdev_priv(ndev);
 
-	netif_stop_queue(ndev);
 	rockchip_canfd_stop(ndev);
 	cancel_delayed_work_sync(&rcan->tx_err_work);
 	close_candev(ndev);
