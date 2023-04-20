@@ -149,7 +149,7 @@
 };
 
 &route_hdmi0{
-    status = "disabled";
+    status = "okay";
 };
 
 
@@ -291,7 +291,7 @@
 };
 
 &route_hdmi0{
-    status = "disabled";
+    status = "okay";
 };
 
 
