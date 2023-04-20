@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+// Copyright (c) 2021 Rockchip Electronics Co., Ltd.
+
+/dts-v1/;
+
+#include "rk3588-evb2-lp4.dtsi"
+#include "rk3588-linux.dtsi"
+#include "rk3588-evb2-imx415-dphy0.dtsi"
+
+/ {
+	model = "Rockchip RK3588 EVB2 LP4 V10 eDP Board";
+	compatible = "rockchip,rk3588-evb2-lp4-v10-edp", "rockchip,rk3588";
+
+	panel-edp1 {
+		compatible = "simple-panel";
+		backlight = <&backlight>;
+		power-supply = <&vcc3v3_lcd_n>;
+		prepare-delay-ms = <120>;
+		enable-delay-ms = <120>;
+		unprepare-delay-ms = <120>;
+		disable-delay-ms = <120>;
+		width-mm = <129>;
+		height-mm = <171>;
+
+		panel-timing {
+			clock-frequency = <150000000>;
+			hactive = <1920>;
+			vactive = <1200>;
+			hfront-porch = <200>;
+			hsync-len = <32>;
+			hback-porch = <48>;
+			vfront-porch = <31>;
+			vsync-len = <6>;
+			vback-porch = <3>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			panel_in_edp1: endpoint {
+				remote-endpoint = <&edp1_out_panel>;
+			};
+		};
+	};
+
+/*	vcc3v3_lcd: vcc3v3-lcd {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_lcd";
+		vin-supply = <&vcc_3v3_s0>;
+	};
+*/
+};
+
+&backlight {
+	enable-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
+};
+
+&dp0_in_vp0 {
+	status = "disabled";
+};
+
+&dp0_in_vp1 {
+	status = "disabled";
+};
+
+&dp0_in_vp2 {
+	status = "okay";
+};
+
+&dp1_in_vp0 {
+	status = "disabled";
+};
+
+&dp1_in_vp1 {
+	status = "disabled";
+};
+
+&dp1_in_vp2 {
+	status = "okay";
+};
+
+&dsi1 {
+	status = "disabled";
+};
+
+&route_dsi1 {
+	status = "disabled";
+	connect = <&vp3_out_dsi1>;
+};
+
+&route_edp1 {
+	status = "okay";
+	connect = <&vp1_out_edp1>;
+};
+&edp1 {
+	force-hpd;
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			edp1_out_panel: endpoint {
+				remote-endpoint = <&panel_in_edp1>;
+			};
+		};
+	};
+};
+
+&edp1_in_vp0 {
+	status = "disabled";
+};
+
+&edp1_in_vp1 {
+	status = "okay";
+};
+
+&edp1_in_vp2 {
+	status = "disabled";
+};
+
+&hdptxphy1 {
+	status = "okay";
+};
+
+/*&vcc3v3_lcd_n {
+	/delete-property/ gpio;
+};*/
+
+&pinctrl {
+
+	backlight {
+		bl_en: bl-en {
+			rockchip,pins = <4 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+};

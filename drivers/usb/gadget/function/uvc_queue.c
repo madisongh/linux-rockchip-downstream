@@ -70,7 +70,11 @@ static int uvc_buffer_prepare(struct vb2_buffer *vb)
 		return -ENODEV;
 
 	buf->state = UVC_BUF_STATE_QUEUED;
+#ifdef CONFIG_ARCH_ROCKCHIP
+	buf->mem = vb2_plane_vaddr(vb, 0) + vb2_plane_data_offset(vb, 0);
+#else
 	buf->mem = vb2_plane_vaddr(vb, 0);
+#endif
 	buf->length = vb2_plane_size(vb, 0);
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		buf->bytesused = 0;
@@ -124,6 +128,14 @@ int uvcg_queue_init(struct uvc_video_queue *queue, enum v4l2_buf_type type,
 	queue->queue.mem_ops = &vb2_vmalloc_memops;
 	queue->queue.timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC
 				     | V4L2_BUF_FLAG_TSTAMP_SRC_EOF;
+	/*
+	 * For rockchip platform, the userspace uvc application
+	 * use bytesused == 0 as a way to indicate that the data
+	 * is all zero and unused.
+	 */
+#ifdef CONFIG_ARCH_ROCKCHIP
+	queue->queue.allow_zero_bytesused = 1;
+#endif
 	ret = vb2_queue_init(&queue->queue);
 	if (ret)
 		return ret;
