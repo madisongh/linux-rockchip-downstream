@@ -512,19 +512,7 @@ static struct platform_driver dw_mci_rockchip_pltfm_driver = {
 	},
 };
 
-//module_platform_driver(dw_mci_rockchip_pltfm_driver);
-
-static int __init dw_mci_init(void)
-{
-        return platform_driver_register(&dw_mci_rockchip_pltfm_driver);
-}
-late_initcall(dw_mci_init);
-
-static void __exit dw_mci_exit(void)
-{
-        return platform_driver_unregister(&dw_mci_rockchip_pltfm_driver);
-}
-module_exit(dw_mci_exit);
+module_platform_driver(dw_mci_rockchip_pltfm_driver);
 
 MODULE_AUTHOR("Addy Ke <addy.ke@rock-chips.com>");
 MODULE_DESCRIPTION("Rockchip Specific DW-MSHC Driver Extension");
