@@ -67,8 +67,6 @@ MODULE_ALIAS("mmc:block");
 #endif
 #define MODULE_PARAM_PREFIX "mmcblk."
 
-struct mmc_rpmb_blk_data gmrbd;
-
 /*
  * Set a 10 second timeout for polling write request busy state. Note, mmc core
  * is setting a 3 second timeout for SD cards, and SDHCI has long had a 10
