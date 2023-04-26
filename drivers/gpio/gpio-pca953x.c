@@ -1287,7 +1287,7 @@ static int pca953x_suspend(struct device *dev)
 		mutex_unlock(&chip->i2c_lock);
 	}
 
-	if (atomic_read(&chip->wakeup_path))
+	if (atomic_read(&chip->wakeup_path)) {
 		device_set_wakeup_path(dev);
 	}else{
 		regulator_disable(chip->regulator);
