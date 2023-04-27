@@ -465,3 +465,18 @@
          )
        >;
 };
+
+/*usb3.1 host2 controller for 5G module*/
+&usbhost3_0 {
+    status = "okay";
+};
+
+&usbhost_dwc3_0 {
+    dr_mode = "host";
+    status = "okay";
+};
+
+&combphy2_psu {
+    status = "okay"; // USB3.1/SATA/PCIe Combo PHY
+
+};
