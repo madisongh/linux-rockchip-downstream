@@ -593,7 +593,6 @@ config PWM_ZX
 
 config PWM_FIREFLY
     tristate "Firefly PWM Demo support"
-	default y
 	help
 	  Firefly PWM framework driver for rk3588 SoCs.
 

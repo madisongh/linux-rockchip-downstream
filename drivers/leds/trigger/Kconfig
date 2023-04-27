@@ -99,7 +99,6 @@ config LEDS_TRIGGER_DEFAULT_ON
 
 config LEDS_FIREFLY_DEMO
 	tristate "Firefly LED Demo support"
-	default y
 	help
 	  This allows LEDs to be initialised in the ON state.
 

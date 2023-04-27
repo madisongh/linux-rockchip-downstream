@@ -1625,7 +1625,6 @@ config GPIO_FIREFLY_GL3321G
 
 config GPIO_FIREFLY
 	tristate "Firefly GPIO Demo support"
-	default y
 	help
 	  Sample code of gpio.
 

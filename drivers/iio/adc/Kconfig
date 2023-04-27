@@ -1235,7 +1235,6 @@ config XILINX_XADC
 
 config ADC_FIREFLY
     tristate "Firefly ADC Demo support"
-	default y
 	help
 	  Sample code of ADC.
 
