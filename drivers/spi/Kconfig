@@ -1049,7 +1049,6 @@ config SPI_WK2XXX
 
 config SPI_FIREFLY
 	tristate "config SPI_FIREFLY"
-	default y
 	help
 	  Select this option if your Firefly board needs to run SPI demo.
 
