@@ -6,6 +6,7 @@
 #include "rk3588-cm3588-lp4.dtsi"
 #include "rk3588-linux.dtsi"
 #include "rk3588-cm3588-imx415-dphy0.dtsi"
+#include "rk3588-cm3588-imx415-dphy1.dtsi"
 
 / {
 	model = "Boardcon CM3588/Idea3588";
