@@ -1479,7 +1479,8 @@ static void __exit sensor_mod_exit(void)
 	i2c_del_driver(&xc7160_i2c_driver);
 }
 
-device_initcall_sync(sensor_mod_init);
+//device_initcall_sync(sensor_mod_init);
+late_initcall_sync(sensor_mod_init)
 module_exit(sensor_mod_exit);
 
 MODULE_DESCRIPTION("OmniVision xc7160 sensor driver");
