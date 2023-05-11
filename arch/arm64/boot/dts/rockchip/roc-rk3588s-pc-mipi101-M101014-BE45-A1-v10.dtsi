@@ -7,7 +7,13 @@
 /dts-v1/;
 
 #include "roc-rk3588s-pc.dtsi"
+
+#if 1 /* "1" to choose 8ms1m, "0" to choose 2ms2m, DO NOT enable both, they are imcompatible */
 #include "rk3588-roc-pc-cam-8ms1m.dtsi"
+#else
+#include "roc-rk3588s-pc-cam-2ms2mf.dtsi"
+#endif
+
 #include "roc-rk3588s-pc-v10-diff.dtsi"
 #define WHICHDSI 0 /* dsi0 = 0,dsi1 = 1*/
 
