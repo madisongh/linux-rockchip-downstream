@@ -136,8 +136,8 @@
 
 &pca9555_1 {
     interrupt-controller;
-    interrupt-parent = <&gpio1>; 
-    interrupts = <RK_PC6 IRQ_TYPE_LEVEL_HIGH>;
+    //interrupt-parent = <&gpio1>; 
+    //interrupts = <RK_PC6 IRQ_TYPE_LEVEL_HIGH>;
 	suspend-io-state = <0xFFF3>;
 	resume-io-state  = <0xFFFF>;
 	//pinctrl-names = "default";
@@ -184,7 +184,7 @@
         ];
     };
 };
-
+/*
 &pinctrl {
 	pca9555int {
 		pca9555_int1: pca9555-int1 {
@@ -192,3 +192,4 @@
 		};
 	};
 };
+*/
