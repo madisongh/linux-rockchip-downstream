@@ -99,6 +99,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3562-test1-ddr3-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3562-test2-ddr4-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3562j-core-ddr4-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-box-demo-v10.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-em3566-linux.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-evb-mipitest-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-evb1-ddr4-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-evb1-ddr4-v10-linux.dtb
