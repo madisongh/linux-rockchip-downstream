@@ -68,6 +68,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-sapphire.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-sapphire-excavator.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399pro-rock-pi-n10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-box-demo-v10.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-em3566-linux.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-evb-mipitest-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-evb1-ddr4-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-evb1-ddr4-v10-linux.dtb
