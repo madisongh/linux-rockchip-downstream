@@ -47,7 +47,7 @@ void Drv_MipiRx_DesscPll_Set(void)
                                    //[4]1'b0: dessc-pll power down
     LT9211C_write(0x27,0x40); //prediv = 0;
 
-    pr_info("Mipi Rx PixClk: %ld",g_stRxVidTiming.ulPclk_Khz);
+    pr_info("Mipi Rx PixClk: %d",g_stRxVidTiming.ulPclk_Khz);
     if (g_stRxVidTiming.ulPclk_Khz >= 352000)
     {
         LT9211C_write(0x2f,0x04);
@@ -614,7 +614,7 @@ void Drv_LvdsTxPll_Config(LvdsOutParameter *lvds_parameter)
     u8 ucPreDiv = 0;
     u8 ucSericlkDiv = 0;
     u8 ucDivSet = 0;
-    float ucPixClkDiv = 0;
+    u8 ucPixClkDiv = 0;
     u32 ulLvdsTXPhyClk = 0;
 
     /* txphyclk = vco clk * ucSericlkDiv */
@@ -738,7 +738,7 @@ void Drv_LvdsTxPll_Config(LvdsOutParameter *lvds_parameter)
     
     LT9211C_write(0x34,0x01); //txpll div set software output enable
     LT9211C_write(0x35,ucDivSet);
-    pr_debug("ulPclk_Khz: %ld, ucPreDiv: %d, ucSericlkDiv: %d, ucPixClkDiv: %.1f, ucDivSet: %d",
+    pr_debug("ulPclk_Khz: %d, ucPreDiv: %d, ucSericlkDiv: %d, ucPixClkDiv: %d, ucDivSet: %d",
                     g_stRxVidTiming.ulPclk_Khz, ucPreDiv, ucSericlkDiv, ucPixClkDiv, ucDivSet);
     
     #if LVDS_SSC_SEL != NO_SSC
