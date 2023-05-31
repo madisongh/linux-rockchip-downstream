@@ -40,6 +40,13 @@
 			<0x0 0xfd90e000 0x0 0x1000>,
 			<0x0 0xfd90f000 0x0 0x1000>;
 	};
+
+	firmware {
+		optee: optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
 };
 
 &reserved_memory {
