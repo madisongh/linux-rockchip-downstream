@@ -252,6 +252,7 @@
 		regulator-boot-on;
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;
 		vin-supply = <&dc_12v>;
 	};
 
@@ -263,7 +264,7 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		enable-active-high;
-		gpio = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;	
+		gpio = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
 		vin-supply = <&vcc5v0_usb>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&vcc5v0_host_en>;
@@ -1324,11 +1325,11 @@
 
 	usb {
 		vcc5v0_host_en: vcc5v0-host-en {
-			rockchip,pins = <0 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;	//<0 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;
+			rockchip,pins = <0 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;	//<0 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
 		vcc5v0_otg_en: vcc5v0-otg-en {
-			rockchip,pins = <0 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;	//<0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;
+			rockchip,pins = <0 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;	//<0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
