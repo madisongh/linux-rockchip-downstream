@@ -71,6 +71,7 @@
 };
 
 &es8388_sound{
+	hw-ver =<0x0>;
 	firefly,not-use-dapm;
 	/delete-property/ spk-con-gpio;
 	io-channels = <&saradc 1>;
