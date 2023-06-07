@@ -339,8 +339,8 @@
 	pca9555: gpio@21 {
 		status = "okay";
 		compatible = "nxp,pca9555";
-		suspend-io-state = <0xc0>;
-		resume-io-state = <0x38c3>;
+		//suspend-io-state = <0xc0>;
+		//resume-io-state = <0x38c3>;
 		//hold-io-state = <0x1000>;
 		reg = <0x21>;
 		gpio-controller;
