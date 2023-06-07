@@ -42,8 +42,6 @@
 #define MAX_CODECS	2
 #define WAIT_CARDS	(SNDRV_CARDS - 1)
 #define DEFAULT_MCLK_FS	256
-#define hw_ver_1 1
-#define hw_ver_0 0
 
 enum mic_link{
 	MIC_LINK_OFF,
@@ -61,8 +59,6 @@ enum LINEIN_TYPE{
 	LINEIN_TYPE0,    //ITX-3588J USE
 	LINEIN_TYPE1,    //ROC-RK3588S-PC USE
 	LINEIN_TYPE2,    //AIO-3588SJD4 USE
-	LINEIN_TYPE3,    //ROC-RK3588-PC USE
-	LINEIN_TPYE4,   //AIO-3588Q USE
 };
 
 #define POLL_VAL 80
@@ -84,22 +80,14 @@ struct multicodecs_data {
 	struct delayed_work handler;
 	struct delayed_work mic_work;
 	unsigned int mclk_fs;
-	bool not_use_dapm;
-	bool hp_enable_state; //1: headphone inserting  0: headphone unpluging
 	bool codec_hp_det;
-	bool hw_ver;
-	int hw_ver_flag;
-	int hp_det_adc_value;
 	u32 linein_type;     //0:ITX-3588J(mic) 1:ROC-RK3588S-PC(mic)
 	u32 last_key;
 	u32 mic_status;
 	u32 keyup_voltage;
 	struct input_dev *input;
 	struct input_dev_mic *mic;
-	struct mutex gpio_lock;
 };
-
-struct multicodecs_data *global_mc_data = NULL;
 
 static struct snd_soc_jack_pin jack_pins[] = {
 	{
@@ -168,33 +156,6 @@ static struct jack_zone aio_3588sjd4_zone[] ={
 	}
 };
 
-
-static struct jack_zone aio_3588q_zone[] ={
-	{
-		.min_mv = 0,
-		.max_mv = 200,
-		.type = INPUT_LIN2_DIFF,
-	}, {
-		.min_mv = 300,
-		.max_mv = 800,
-		.type = INPUT_LIN2,
-	}, {
-		.min_mv = 1000,
-		.max_mv = UINT_MAX,
-		.type = INPUT_LIN1,
-
-	}
-};
-
-
-static struct jack_zone lin1_leftonly_lin2diff_zone[] ={
-	{
-		.min_mv = 1700,
-		.max_mv = UINT_MAX,
-		.type = INPUT_LIN1,
-	}
-};
-
 static int jack_get_type(struct jack_zone *zone, int count, int micbias_voltage)
 {
 	int i;
@@ -218,7 +179,7 @@ static void mic_det_work(struct work_struct *work)
 {
 	struct multicodecs_data *mc_data = container_of(work,struct multicodecs_data,mic_work.work);
 	int value, ret ,status;
-
+	
 	ret = iio_read_channel_processed(mc_data->adc, &value);
 	if (unlikely(ret < 0)) {
 		/* Forcibly release key if any was pressed */
@@ -228,11 +189,9 @@ static void mic_det_work(struct work_struct *work)
 		if(mc_data->linein_type == LINEIN_TYPE1){
 			status = jack_get_type(lin1_lin2_zone,ARRAY_SIZE(lin1_lin2_zone),value);
 		}else if (mc_data->linein_type == LINEIN_TYPE2){
-			status = jack_get_type(aio_3588sjd4_zone,ARRAY_SIZE(aio_3588sjd4_zone),value);
-		}else if (mc_data->linein_type == LINEIN_TYPE3){
-			status = jack_get_type(lin1_leftonly_lin2diff_zone,ARRAY_SIZE(lin1_leftonly_lin2diff_zone),value);
-		}else if (mc_data->linein_type == LINEIN_TPYE4){
-			status = jack_get_type(aio_3588q_zone,ARRAY_SIZE(aio_3588q_zone),value);
+			status = jack_get_type(lin0_lin1_zone,ARRAY_SIZE(lin0_lin1_zone),value);
+			if (status == INPUT_LIN2_DIFF)
+				status = INPUT_LIN1;
 		}else{
 			status = jack_get_type(lin1_lin2_lin2diff_zone,ARRAY_SIZE(lin1_lin2_lin2diff_zone),value);
 		}
@@ -263,76 +222,6 @@ static int mic_det_fun(struct multicodecs_data *mc_data)
 	return 0;
 }
 
-/*set es8323 output mute*/
-extern void firefly_multircodecs_mute_es8323(int mute);
-
-/*
- *  firefly_multicodecs_control_gpio() will be called by firefly_multircodecs_mute_es8323(),
- *  and that is always called by the codec snd_soc_dai_ops mute_stream()
- * */
-void firefly_multicodecs_control_gpio(int sound_mute)
-{
-	if(global_mc_data == NULL){
-		printk("[zyk debug] %s: can't get global_mc_data!\n",__func__);
-		return;
-	}
-
-	if(global_mc_data->not_use_dapm != true)
-		return;
-
-	mutex_lock(&global_mc_data->gpio_lock);
-	if(sound_mute){
-		gpiod_set_value_cansleep(global_mc_data->hp_ctl_gpio,0);
-		gpiod_set_value_cansleep(global_mc_data->spk_ctl_gpio,0);
-	}else{
-		if(global_mc_data->hp_enable_state == true){
-			gpiod_set_value_cansleep(global_mc_data->spk_ctl_gpio,0);
-			gpiod_set_value_cansleep(global_mc_data->hp_ctl_gpio,1);
-		}else{
-			gpiod_set_value_cansleep(global_mc_data->hp_ctl_gpio,0);
-			gpiod_set_value_cansleep(global_mc_data->spk_ctl_gpio,1);
-		}
-	}
-	mutex_unlock(&global_mc_data->gpio_lock);
-	return;
-}
-
-static void adc_jack_poll_handler(struct work_struct *work)
-{
-	struct multicodecs_data *mc_data = container_of(to_delayed_work(work),
-						  struct multicodecs_data,
-						  handler);
-	struct snd_soc_jack *jack_headset = mc_data->jack_headset;
-	int value, ret;
-	bool hp_state;
-
-	ret = iio_read_channel_raw(mc_data->adc, &value);
-	//printk("debug %s-%d : use adc to detect headphone,adc rawvalue  = %d \n",__func__,__LINE__,value);
-	if( value < (mc_data->hp_det_adc_value -100)  || value > (mc_data->hp_det_adc_value +100) )
-		hp_state = false;
-	else
-		hp_state = true;
-
-	if(mc_data->hp_enable_state != hp_state || first_init_adc_flag == 0){
-		if(hp_state){
-			firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
-			snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
-			snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
-			extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
-			extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);
-
-		}else{
-			snd_soc_jack_report(jack_headset, 0, SND_JACK_HEADSET);
-			snd_soc_jack_report(jack_headset, SND_JACK_LINEOUT, SND_JACK_LINEOUT);
-			extcon_set_state_sync(mc_data->extcon,EXTCON_JACK_HEADPHONE, false);
-			extcon_set_state_sync(mc_data->extcon,EXTCON_JACK_MICROPHONE, false);
-		}
-		first_init_adc_flag = 1;
-	}
-
-	mc_data->hp_enable_state = hp_state;
-	queue_delayed_work(system_freezable_wq, &mc_data->handler, msecs_to_jiffies(500));
-}
 
 static void adc_jack_handler(struct work_struct *work)
 {
@@ -341,38 +230,7 @@ static void adc_jack_handler(struct work_struct *work)
 						  handler);
 	struct snd_soc_jack *jack_headset = mc_data->jack_headset;
 
-
-	int hp_det_gpio=0;
-
-	if(mc_data->hw_ver){
-  		if(mc_data->hw_ver_flag == hw_ver_1)
-  		 	hp_det_gpio = gpiod_get_value(mc_data->hp_det_gpio);
-		else
-		 	hp_det_gpio = !gpiod_get_value(mc_data->hp_det_gpio);
-
-		if (hp_det_gpio) {
-			mc_data->hp_enable_state = false;
-			snd_soc_jack_report(jack_headset, 0, SND_JACK_HEADSET);
-			snd_soc_jack_report(jack_headset, SND_JACK_LINEOUT, SND_JACK_LINEOUT);
-			extcon_set_state_sync(mc_data->extcon,
-					EXTCON_JACK_HEADPHONE, false);
-			extcon_set_state_sync(mc_data->extcon,
-					EXTCON_JACK_MICROPHONE, false);
-			es8323_line1_line2_line2diff_switch(INPUT_LIN2_DIFF);
-			return;
-		}
-		mc_data->hp_enable_state = true;
-		firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
-		snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
-		snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
-		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
-		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);
-		es8323_line1_line2_line2diff_switch(INPUT_LIN1);
-		return;
-	}
-
 	if (!gpiod_get_value(mc_data->hp_det_gpio)) {
-		mc_data->hp_enable_state = false;
 		snd_soc_jack_report(jack_headset, 0, SND_JACK_HEADSET);
 		snd_soc_jack_report(jack_headset, SND_JACK_LINEOUT, SND_JACK_LINEOUT);
 		extcon_set_state_sync(mc_data->extcon,
@@ -381,16 +239,12 @@ static void adc_jack_handler(struct work_struct *work)
 				EXTCON_JACK_MICROPHONE, false);
 		return;
 	}
-	/* no ADC, so is headphone */
-	mc_data->hp_enable_state = true;
-	/* make sure the es8323 will mute first time, or the speaker may get sonic boom */
-	firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
 
+	/* no ADC, so is headphone */
 	snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
 	snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
 	extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
 	extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_MICROPHONE, false);
-
 	return;
 };
 
@@ -408,9 +262,6 @@ static int mc_hp_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_card *card = w->dapm->card;
 	struct multicodecs_data *mc_data = snd_soc_card_get_drvdata(card);
-
-	if(mc_data->not_use_dapm == true)
-		return 0;
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -432,9 +283,6 @@ static int mc_spk_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_card *card = w->dapm->card;
 	struct multicodecs_data *mc_data = snd_soc_card_get_drvdata(card);
-
-	if(mc_data->not_use_dapm == true)
-		return 0;
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -532,9 +380,7 @@ static int rk_dailink_init(struct snd_soc_pcm_runtime *rtd)
 		struct snd_soc_component *component = asoc_rtd_to_codec(rtd, 0)->component;
 
 		snd_soc_component_set_jack(component, jack_headset, NULL);
-	}else if(mc_data->hp_det_adc_value >= 0){
-		// do nothing
-	}else {
+	} else {
 		irq = gpiod_to_irq(mc_data->hp_det_gpio);
 		if (irq >= 0) {
 			ret = devm_request_threaded_irq(card->dev, irq, NULL,
@@ -686,8 +532,6 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 	int count;
 	int ret = 0, i = 0, idx = 0;
 	const char *prefix = "rockchip,";
-	int adc_value;
-	u32 hw_ver ;
 
 	ret = wait_locked_card(np, &pdev->dev);
 	if (ret < 0) {
@@ -698,8 +542,6 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 	mc_data = devm_kzalloc(&pdev->dev, sizeof(*mc_data), GFP_KERNEL);
 	if (!mc_data)
 		return -ENOMEM;
-
-	mc_data->hp_det_adc_value = -1;
 
 	cpus = devm_kzalloc(&pdev->dev, sizeof(*cpus), GFP_KERNEL);
 	if (!cpus)
@@ -808,42 +650,8 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 		mic_det_fun(mc_data);
 	}
 
-	if (!of_property_read_u32(np, "hp-det-adc-value", &adc_value)){
-		mc_data->hp_det_adc_value = adc_value;
-	}
-	if(mc_data->hp_det_adc_value >= 0){
-		INIT_DELAYED_WORK(&mc_data->handler, adc_jack_poll_handler);
-		queue_delayed_work(system_freezable_wq, &mc_data->handler, msecs_to_jiffies(1000));
-	}else{
-		INIT_DEFERRABLE_WORK(&mc_data->handler, adc_jack_handler);
-	}
 
-
-	if (of_property_read_u32(np, "hw-ver", &hw_ver))
-	{
-		mc_data->hw_ver = false;
-		dev_warn(&pdev->dev, "Failed to get hw-ver");
-	}
-	else
-	{
-		mc_data->hw_ver = true;
-		if(hw_ver == hw_ver_0)
-		{
-			printk("multicodecs : this is roc-rk3588s-pc v0.1\n");	
-			mc_data->hw_ver_flag = hw_ver_0;
-		}
-		else if(hw_ver == hw_ver_1)
-		{
-			printk("multicodecs : this is roc-rk3588s-pc v1.0 or later \n");
-			mc_data->hw_ver_flag = hw_ver_1;
-		}
-	}
-
-	mc_data->not_use_dapm =
-		of_property_read_bool(np, "firefly,not-use-dapm");
-	if(!mc_data->not_use_dapm)
-		dev_warn(&pdev->dev, "using dapm to control gpio");
-
+	INIT_DEFERRABLE_WORK(&mc_data->handler, adc_jack_handler);
 
 	mc_data->spk_ctl_gpio = devm_gpiod_get_optional(&pdev->dev,
 							"spk-con",
@@ -888,9 +696,6 @@ static int rk_multicodecs_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, card);
-
-	mutex_init(&mc_data->gpio_lock);
-	global_mc_data = mc_data;
 
 	return ret;
 }
