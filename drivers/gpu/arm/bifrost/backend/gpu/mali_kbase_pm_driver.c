@@ -2577,27 +2577,23 @@ KBASE_EXPORT_TEST_API(kbase_pm_disable_interrupts);
 #if MALI_USE_CSF
 static void update_user_reg_page_mapping(struct kbase_device *kbdev)
 {
-	int i = 0;
 	lockdep_assert_held(&kbdev->pm.lock);
 
 	mutex_lock(&kbdev->csf.reg_lock);
 
-
-	for(i = 0; i < MAX_FILE_INODE; i++)
-	{
-		if (kbdev->csf.mfi_pool[i]) {
+	/* Only if the mappings for USER page exist, update all PTEs associated to it */
+	if (kbdev->csf.nr_user_page_mapped > 0) {
+		if (likely(kbdev->csf.mali_file_inode)) {
 			/* This would zap the pte corresponding to the mapping of User
 			 * register page for all the Kbase contexts.
 			 */
-			//printk("rk-debug[%s %s %d] pid=%d  name:%s i_mapping:%p i=%d\n",__FILE__,__FUNCTION__,__LINE__,current->pid,current->comm,kbdev->csf.mfi_pool[i]->i_mapping,i); //kernel带进程名
-
-			unmap_mapping_range(kbdev->csf.mfi_pool[i]->i_mapping,
-					    BASEP_MEM_CSF_USER_REG_PAGE_HANDLE,
-					    PAGE_SIZE, 1);
+			unmap_mapping_range(kbdev->csf.mali_file_inode->i_mapping,
+					    BASEP_MEM_CSF_USER_REG_PAGE_HANDLE, PAGE_SIZE, 1);
+		} else {
+			dev_err(kbdev->dev,
+				"Device file inode not exist even if USER page previously mapped");
 		}
 	}
-
-
 
 	mutex_unlock(&kbdev->csf.reg_lock);
 }
