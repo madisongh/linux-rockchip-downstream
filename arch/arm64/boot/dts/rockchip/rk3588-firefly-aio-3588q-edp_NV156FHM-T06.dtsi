@@ -138,8 +138,8 @@
     interrupt-controller;
     //interrupt-parent = <&gpio1>; 
     //interrupts = <RK_PC6 IRQ_TYPE_LEVEL_HIGH>;
-	suspend-io-state = <0xFFF3>;
-	resume-io-state  = <0xFFFF>;
+	//suspend-io-state = <0xFFF3>;
+	//resume-io-state  = <0xFFFF>;
 	//pinctrl-names = "default";
    // pinctrl-0 = <&pca9555_int1>;
 
