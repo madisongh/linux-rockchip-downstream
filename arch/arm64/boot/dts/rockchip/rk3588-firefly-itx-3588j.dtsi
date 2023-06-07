@@ -458,14 +458,6 @@
        };
 };
 
-&rockchip_suspend{
-       rockchip,sleep-mode-config = <
-         (0
-         | RKPM_SLP_ARMOFF_DDRPD
-         )
-       >;
-};
-
 /*usb3.1 host2 controller for 5G module*/
 &usbhost3_0 {
     status = "okay";
