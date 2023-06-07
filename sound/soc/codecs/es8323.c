@@ -646,6 +646,7 @@ void firefly_multircodecs_mute_es8323(int mute)
 		firefly_multicodecs_control_gpio(mute);
 		//usleep_range(18000, 20000);
 		snd_soc_component_write(es8323_param->component,ES8323_DACCONTROL3,0x02);
+		snd_soc_component_write(es8323_param->component, ES8323_DACPOWER, 0x30);
 	}
 
 	return;
