@@ -151,9 +151,9 @@
 };
 &es8388{
 	status = "okay";
-	clocks = <&cru I2S1_8CH_MCLKOUT>;
+	clocks = <&mclkout_i2s1>;
 	clock-names = "mclk";
-	assigned-clocks = <&cru I2S1_8CH_MCLKOUT>;
+	assigned-clocks = <&mclkout_i2s1>;
 	assigned-clock-rates = <12288000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2s1m0_mclk>;
