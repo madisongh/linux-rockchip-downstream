@@ -21,6 +21,14 @@
 	};
 };
 
+&adc_keys{
+	recovery-key{
+	        label = "F12";
+	        linux,code = <KEY_F12>;
+	        press-threshold-microvolt = <10000>;
+	};
+};
+
 /* led */
 &firefly_leds{
 	pinctrl-names = "default";
