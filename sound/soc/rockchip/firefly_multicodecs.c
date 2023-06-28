@@ -362,7 +362,7 @@ static void adc_jack_handler(struct work_struct *work)
 			return;
 		}
 		mc_data->hp_enable_state = true;
-		firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
+		firefly_multircodecs_mute_es8323(!mc_data->hp_enable_state);
 		snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
 		snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
 		extcon_set_state_sync(mc_data->extcon, EXTCON_JACK_HEADPHONE, true);
@@ -384,7 +384,7 @@ static void adc_jack_handler(struct work_struct *work)
 	/* no ADC, so is headphone */
 	mc_data->hp_enable_state = true;
 	/* make sure the es8323 will mute first time, or the speaker may get sonic boom */
-	firefly_multircodecs_mute_es8323(mc_data->hp_enable_state);
+	firefly_multircodecs_mute_es8323(!mc_data->hp_enable_state);
 
 	snd_soc_jack_report(jack_headset, SND_JACK_HEADPHONE, SND_JACK_HEADSET);
 	snd_soc_jack_report(jack_headset, 0, SND_JACK_LINEOUT);
