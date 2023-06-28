@@ -161,7 +161,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&hp_det>;
 	hw-ver =<0x0>;
-	firefly,not-use-dapm;
 };
 
 &i2c7 {
