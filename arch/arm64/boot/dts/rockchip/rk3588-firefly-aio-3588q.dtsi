@@ -298,7 +298,7 @@
 
 &vcc_hub3_reset{
 	status = "okay";
-	compatible = "regulator-fixed-firefly";
+	compatible = "regulator-fixed-firefly","regulator-fixed-firefly-uboot";
 	regulator-name = "vcc_hub3_reset";
 	enable-active-high;
 	regulator-always-on;
