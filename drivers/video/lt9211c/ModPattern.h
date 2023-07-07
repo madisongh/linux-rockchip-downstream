@@ -3,7 +3,7 @@
 
 /******************* Lvds Output Config ********************/
 
-struct video_pattern_timing
+typedef struct video_pattern_timing
 {
     u16 hfp;
     u16 hs;
