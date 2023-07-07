@@ -323,7 +323,7 @@ int LT9211C_write(u8 reg, u8 val)
     struct i2c_msg msg;
     u8 buf[2] = { reg, val };
     int read_data;
-    int i = 0;
+    int ture = 0;
     if (!client) {
         printk("%s: Invalid params\n", __func__);
         return -EINVAL;
@@ -334,7 +334,7 @@ int LT9211C_write(u8 reg, u8 val)
     msg.len = 2;
     msg.buf = buf;
 
-    for(i=0; i<3;i++){
+    for(int i=0; i<3;i++){
         if (i2c_transfer(client->adapter, &msg, 1) < 1) {
             rc = -EIO;
         }
@@ -355,7 +355,7 @@ int LT9211C_read(u8 reg)
     struct i2c_client *client = lt9211c_client;
     struct i2c_msg msg[2];
     u8 buf[2] = {reg};
-    if (!client) {
+    if (!client || !buf) {
         printk("%s: Invalid params\n", __func__);
         return -EINVAL;
     }
@@ -367,7 +367,7 @@ int LT9211C_read(u8 reg)
 
     msg[1].addr = client->addr;
     msg[1].flags = I2C_M_RD;
-    msg[1].len = 1;
+    msg[1].len = 2;
     msg[1].buf = &buf[1];
 
     if (i2c_transfer(client->adapter, msg, 2) != 2) {
@@ -381,6 +381,7 @@ int LT9211C_read(u8 reg)
 }
 
 int LT9211C_get_display_timings(struct device_node *np){
+    u32 val = 0;
     int ret = 0;
 
     u32 ulPclk;
@@ -464,7 +465,7 @@ static int LT9211C_parse_dt(struct device *dev)
 
     pr_debug("reset_gpio=%d\n",lt9211c_pdata->reset_gpio);
     pr_debug("power_gpio=%d\n",lt9211c_pdata->power_gpio);
-    pr_debug("lvds_parameter.lt9211c_mode_sel=%s\n",lvds_parameter.lt9211c_mode_sel);
+    pr_debug("lvds_parameter.lt9211c_mode_sel=%d\n",lvds_parameter.lt9211c_mode_sel);
     pr_debug("lvdstx_port_sel=%s\n",lvds_parameter.lvdstx_port_sel);
     pr_debug("lvdstx_port_swap=%s\n",lvds_parameter.lvdstx_port_swap);
 
@@ -488,10 +489,11 @@ static int LT9211C_gpio_configure(bool on)
                    "LT9211C-power-gpio");
         if (ret) {
             pr_err("LT9211C power gpio request failed\n");
-            goto reset_error;
+            goto error;
         }
     } else {
-		goto power_error;
+        gpio_free(lt9211c_pdata->reset_gpio);
+        gpio_free(lt9211c_pdata->power_gpio);
     }
 
     return ret;
@@ -504,7 +506,7 @@ error:
     return ret;
 }
 
-static void Mod_LT9211C_Reset(void)
+static void Mod_LT9211C_Reset()
 {
     gpio_direction_output(lt9211c_pdata->power_gpio,1);
     msleep(100);
@@ -513,7 +515,7 @@ static void Mod_LT9211C_Reset(void)
     gpio_direction_output(lt9211c_pdata->reset_gpio,1);
 }
 
-static int Mod_ChipID_Read(void)
+static int Mod_ChipID_Read()
 {
     u8 retry = 0;
     u8 chip_id_h = 0, chip_id_m = 0, chip_id_l = 0;
@@ -548,7 +550,7 @@ static int Mod_ChipID_Read(void)
 
     return ret;
 }
-static int lt9211c_config(void)
+static int lt9211c_config()
 {
     int count = 0;
     Mod_LT9211C_Reset();
@@ -588,22 +590,23 @@ static void delayed_func_for_lt9211c_state_check(struct work_struct *work)
     schedule_delayed_work(&test_delayed_work,1*HZ);
 }
 
-//static void LT9211C_suspend(void)
-//{
-//    gpio_set_value(lt9211c_pdata->power_gpio, 0);
-//    msleep(100);
-//}
-//
-//static void LT9211C_resume(void)
-//{
-//    gpio_set_value(lt9211c_pdata->power_gpio, 1);
-//    msleep(100);
-//    lt9211c_config();
-//}
+static void LT9211C_suspend()
+{
+    gpio_set_value(lt9211c_pdata->power_gpio, 0);
+    msleep(100);
+}
+
+static void LT9211C_resume()
+{   
+    gpio_set_value(lt9211c_pdata->power_gpio, 1);
+    msleep(100);
+    lt9211c_config();
+}
 
 static int LT9211C_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     int ret = 0;
+    int data = 0;
 
     if (!client || !client->dev.of_node) {
         pr_err("Lontium invalid input\n");
@@ -656,8 +659,8 @@ static int LT9211C_probe(struct i2c_client *client, const struct i2c_device_id *
 
     return ret;
 
-//err_i2c_prog:
-//    LT9211C_gpio_configure(LONTIUM_FALSE);
+err_i2c_prog:
+    LT9211C_gpio_configure(LONTIUM_FALSE);
 err_dt_parse:
     devm_kfree(&lt9211c_client->dev, lt9211c_pdata);
 

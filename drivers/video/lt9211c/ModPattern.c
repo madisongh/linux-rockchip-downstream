@@ -4,7 +4,7 @@
   * @author: sxue
   * @company: LONTIUM COPYRIGHT and CONFIDENTIAL
   * @date: 2023.01.29
-******************************************************************************/
+/******************************************************************************/
 
 #include    "include.h"
 
@@ -564,6 +564,9 @@ void Mod_LvdsTxpll_ForPtn(struct ChipRxVidTiming *ptn_timing)
 
 void Mod_LvdsTxDigital_Forptn(void)
 {  
+    u16 vss = 0;
+    u16 eav = 0;
+    u16 sav = 0;
     
     LT9211C_write(0xff,0x85); 
 #if LVDSTX_MODE == SYNC_MODE
@@ -643,9 +646,6 @@ void Mod_LvdsTxDigital_Forptn(void)
             LT9211C_write(0x68,(LT9211C_read(0x68) | 0x04));
     #endif
     
-    u16 vss = 0;
-    u16 eav = 0;
-    u16 sav = 0;
     vss = ptn_timing.usVs + ptn_timing.usVbp;
     eav = ptn_timing.usHs + ptn_timing.usHbp + ptn_timing.usHact + 4;
     sav = ptn_timing.usHs + ptn_timing.usHbp;
