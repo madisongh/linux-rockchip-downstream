@@ -10,7 +10,7 @@
 
 / {
 	model = "Boardcon CM3588/Idea3588";
-	compatible = "rockchip,rk3588-evb2-lp4-v10-edp", "rockchip,rk3588";
+	compatible = "rockchip,rk3588-cm3588", "rockchip,rk3588";
 
 	panel-edp1 {
 		compatible = "simple-panel";
@@ -46,12 +46,6 @@
 		};
 	};
 
-/*	vcc3v3_lcd: vcc3v3-lcd {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc3v3_lcd";
-		vin-supply = <&vcc_3v3_s0>;
-	};
-*/
 };
 
 &backlight {
@@ -125,10 +119,6 @@
 &hdptxphy1 {
 	status = "okay";
 };
-
-/*&vcc3v3_lcd_n {
-	/delete-property/ gpio;
-};*/
 
 &pinctrl {
 
