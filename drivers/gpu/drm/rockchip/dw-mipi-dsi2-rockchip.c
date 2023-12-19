@@ -37,7 +37,6 @@
 
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_vop.h"
-#include "../../../video/lt9211c/include.h"
 
 #define UPDATE(v, h, l)			(((v) << (l)) & GENMASK((h), (l)))
 
@@ -476,10 +475,8 @@ static void dw_mipi_dsi2_encoder_atomic_disable(struct drm_encoder *encoder,
 	if (!(dsi2->mode_flags & MIPI_DSI_MODE_VIDEO))
 		rockchip_drm_crtc_standby(encoder->crtc, 0);
 
-	if (dsi2->panel){
+	if (dsi2->panel)
 		drm_panel_unprepare(dsi2->panel);
-		LT9211C_suspend();
-	}
 
 	dw_mipi_dsi2_post_disable(dsi2);
 
@@ -874,10 +871,8 @@ static int ff_dw_mipi_dsi2_encoder_mode_set(struct dw_mipi_dsi2 *dsi2)
 
 	dw_mipi_dsi2_enable(dsi2);
 
-	if (dsi2->panel){
+	if (dsi2->panel)
 		drm_panel_enable(dsi2->panel);
-		LT9211C_resume();
-	}
 
 
 	return ret;
