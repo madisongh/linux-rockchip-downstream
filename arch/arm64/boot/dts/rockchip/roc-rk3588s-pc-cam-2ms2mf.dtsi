@@ -5,7 +5,6 @@
  */
 / {
 	vcc_mipidphy0: vcc-mipidcphy0-regulator {
-		status = "disabled";
 		compatible = "regulator-fixed";
 		gpio = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
@@ -54,7 +53,7 @@
 
 			csidphy1_out: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&mipi2_csi2_input1>;
+				remote-endpoint = <&mipi2_csi2_input>;
 			};
 		};
 	};
@@ -108,9 +107,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&mipim0_camera2_clk>;
 		power-domains = <&power RK3588_PD_VI>;
-		//avdd-supply = <&vcc_mipidphy0>;
+		avdd-supply = <&vcc_mipidphy0>;
 		power-gpios = <&gpio3 RK_PC4 GPIO_ACTIVE_HIGH>;
-		cam-power-gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
 		pwdn-gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
 		firefly,clkout-enabled-index = <1>;
 		rockchip,camera-module-index = <0>;
@@ -132,7 +130,7 @@
 		clock-names = "xvclk";
 		pinctrl-names = "default";
 		power-domains = <&power RK3588_PD_VI>;
-		//avdd-supply = <&vcc_mipidphy0>;
+		avdd-supply = <&vcc_mipidphy0>;
 		flash-leds = <&flash_led>;
 		//reset-gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_LOW>;
 		pwdn-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
@@ -164,7 +162,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipi2_csi2_input1: endpoint@1 {
+			mipi2_csi2_input: endpoint@1 {
 				reg = <1>;
 				remote-endpoint = <&csidphy1_out>;
 			};
