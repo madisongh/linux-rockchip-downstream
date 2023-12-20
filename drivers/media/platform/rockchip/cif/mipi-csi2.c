@@ -687,7 +687,7 @@ csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			struct csi2_dev,
 			notifier);
 	struct csi2_sensor_info *sensor;
-	//struct media_link *link;
+	struct media_link *link;
 	unsigned int pad, ret;
 
 	if (csi2->num_sensors == ARRAY_SIZE(csi2->sensors)) {
@@ -721,7 +721,7 @@ csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			sd->name);
 		return ret;
 	}
-/*
+
 	link = list_first_entry(&csi2->sd.entity.links, struct media_link, list);
 	ret = media_entity_setup_link(link, MEDIA_LNK_FL_ENABLED);
 	if (ret) {
@@ -730,7 +730,7 @@ csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			sensor->sd->name);
 		return ret;
 	}
-*/
+
 	return 0;
 }
 

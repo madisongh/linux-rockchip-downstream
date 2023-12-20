@@ -119,7 +119,6 @@ struct gc2053 {
 	struct gpio_desc    *reset_gpio;
 	struct gpio_desc    *pwdn_gpio;
 	struct gpio_desc    *power_gpio;
-	struct gpio_desc    *cam_power_gpio;
 	struct regulator_bulk_data supplies[GC2053_NUM_SUPPLIES];
 
 	struct pinctrl      	*pinctrl;
@@ -758,11 +757,6 @@ static int __gc2053_power_on(struct gc2053 *gc2053)
 	if (ret < 0) {
 		dev_err(dev, "Failed to enable regulators\n");
 		goto disable_clk;
-	}
-
-	if (!IS_ERR(gc2053->cam_power_gpio)) {
-		gpiod_set_value_cansleep(gc2053->cam_power_gpio, 1);
-		usleep_range(100, 200);
 	}
 	if (!IS_ERR(gc2053->power_gpio)) {
 		gpiod_set_value_cansleep(gc2053->power_gpio, 1);
@@ -1455,10 +1449,6 @@ static int gc2053_probe(struct i2c_client *client,
 	gc2053->power_gpio = devm_gpiod_get(dev, "power", GPIOD_OUT_LOW);
 	if (IS_ERR(gc2053->power_gpio))
 		dev_warn(dev, "Failed to get power-gpios\n");
-
-	gc2053->cam_power_gpio = devm_gpiod_get(dev, "cam-power", GPIOD_OUT_LOW);
-	if (IS_ERR(gc2053->cam_power_gpio))
-		dev_warn(dev, "Failed to get cam-power-gpios\n");
 
 	ret = gc2053_configure_regulators(gc2053);
 	if (ret) {
