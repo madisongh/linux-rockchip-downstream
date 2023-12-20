@@ -61,9 +61,7 @@
 
 &csi2_dphy0 {
 	status = "okay";
-#ifdef FF_COMPATIBLE
-	firefly-compatible;
-#endif
+
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -97,9 +95,7 @@
 
 &mipi2_csi2 {
 	status = "okay";
-#ifdef FF_COMPATIBLE
-	firefly-compatible;
-#endif
+
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;

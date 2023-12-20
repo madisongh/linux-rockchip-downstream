@@ -150,7 +150,6 @@ struct csi2_dev {
 	void __iomem		*base;
 	struct v4l2_async_notifier	notifier;
 	struct v4l2_fwnode_bus_mipi_csi2	bus;
-	bool 			firefly_compatible;
 
 	/* lock to protect all members below */
 	struct mutex lock;
