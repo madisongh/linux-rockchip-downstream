@@ -728,6 +728,7 @@ rockchip_csi2_dphy_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct sensor_async_subdev *s_asd = container_of(asd,
 					struct sensor_async_subdev, asd);
 	struct csi2_sensor *sensor;
+	struct media_link *link;
 	unsigned int pad, ret;
 
 	if (dphy->num_sensors == ARRAY_SIZE(dphy->sensors))
@@ -741,23 +742,19 @@ rockchip_csi2_dphy_notifier_bound(struct v4l2_async_notifier *notifier,
 	dev_info(dphy->dev, "dphy%d matches %s:bus type %d\n",
 		 dphy->phy_index, sd->name, s_asd->mbus.type);
 
-	if (dphy->firefly_compatible) {
-		if (dphy->drv_data->vendor != PHY_VENDOR_SAMSUNG) {
-			if (dphy->dphy_hw->dphy_dev_num == 0) {
-				dphy->dphy_hw->lane_mode = dphy->lane_mode;
-			} else if (dphy->lane_mode != dphy->dphy_hw->lane_mode) {
-				dev_err(dphy->dev,
-					"Err:csi2 dphy hw has been set as %s mode by phy%d, target mode is:%s\n",
-					dphy->dphy_hw->lane_mode == LANE_MODE_FULL ? "full" : "split",
-					dphy->dphy_hw->dphy_dev[0]->phy_index,
-					dphy->lane_mode == LANE_MODE_FULL ? "full" : "split");
-				return -ENODEV;
-			}
-
-			dphy->dphy_hw->dphy_dev[dphy->dphy_hw->dphy_dev_num] = dphy;
-			dphy->dphy_hw->dphy_dev_num++;
-		}
+	if (dphy->dphy_hw->dphy_dev_num == 0) {
+		dphy->dphy_hw->lane_mode = dphy->lane_mode;
+	} else if (dphy->lane_mode != dphy->dphy_hw->lane_mode) {
+		dev_err(dphy->dev,
+                                "Err:csi2 dphy hw has been set as %s mode by phy%d, target mode is:%s\n",
+                                dphy->dphy_hw->lane_mode == LANE_MODE_FULL ? "full" : "split",
+                                dphy->dphy_hw->dphy_dev[0]->phy_index,
+                                dphy->lane_mode == LANE_MODE_FULL ? "full" : "split");
+		return -ENODEV;
 	}
+
+	dphy->dphy_hw->dphy_dev[dphy->dphy_hw->dphy_dev_num] = dphy;
+	dphy->dphy_hw->dphy_dev_num++;
 
 	for (pad = 0; pad < sensor->sd->entity.num_pads; pad++)
 		if (sensor->sd->entity.pads[pad].flags & MEDIA_PAD_FL_SOURCE)
@@ -771,18 +768,14 @@ rockchip_csi2_dphy_notifier_bound(struct v4l2_async_notifier *notifier,
 		return -ENXIO;
 	}
 
-	if (dphy->firefly_compatible) {
 /* Set up link for dphy and csi */
-		struct media_link *link;
-
-		link = list_first_entry(&dphy->sd.entity.links, struct media_link, list);
-		ret = media_entity_setup_link(link, MEDIA_LNK_FL_ENABLED);
-		if (ret) {
-			dev_err(dphy->dev,
-				"failed to set up link\n");
-			return ret;
-		}
-	}
+	link = list_first_entry(&dphy->sd.entity.links, struct media_link, list);
+	ret = media_entity_setup_link(link, MEDIA_LNK_FL_ENABLED);
+	if (ret) {
+                dev_err(dphy->dev,
+                        "failed to set up link\n");
+                return ret;
+        }
 
 	ret = media_create_pad_link(
 			&sensor->sd->entity, pad,
@@ -1042,8 +1035,6 @@ static int rockchip_csi2_dphy_probe(struct platform_device *pdev)
 		return -EINVAL;
 	drv_data = of_id->data;
 	csi2dphy->drv_data = drv_data;
-	csi2dphy->firefly_compatible = device_property_read_bool(dev, "firefly-compatible");
-
 	csi2dphy->phy_index = of_alias_get_id(dev->of_node, drv_data->dev_name);
 	if (csi2dphy->phy_index < 0 || csi2dphy->phy_index >= PHY_MAX)
 		csi2dphy->phy_index = 0;
