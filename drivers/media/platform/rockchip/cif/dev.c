@@ -1483,32 +1483,6 @@ static int subdev_asyn_register_itf(struct rkcif_device *dev)
 	return ret;
 }
 
-static int cif_detect_subdev_sensor(struct rkcif_device *cif_dev)
-{
-        struct v4l2_device *v4l2_dev;
-        struct v4l2_subdev *sd;
-	bool is_sensor;
-	int i;
-
-        v4l2_dev = &cif_dev->v4l2_dev;
-	list_for_each_entry(sd, &v4l2_dev->subdevs, list){
-                if(sd){
-			is_sensor = true;
-
-			for (i = 0; i < sd->entity.num_pads; i++) {
-				if (sd->entity.pads[i].flags & MEDIA_PAD_FL_SINK) {
-					is_sensor = false;
-					break;
-				}
-			}
-			if(is_sensor == true)
-				return 0;
-
-                }
-	}
-	return -ENOMEM;
-}
-
 static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 {
 	struct rkcif_device *dev;
@@ -1518,18 +1492,6 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 	int ret, index;
 
 	dev = container_of(notifier, struct rkcif_device, notifier);
-
-	ret = cif_detect_subdev_sensor(dev);
-        if(ret < 0){
-                if(dev->chip_id == CHIP_RK3588_CIF){
-                        rkcif_unregister_stream_vdevs(dev, RKCIF_MAX_STREAM_MIPI);
-                        rkcif_unregister_scale_vdevs(dev, RKCIF_MAX_SCALE_CH);
-                        rkcif_unregister_tools_vdevs(dev, RKCIF_MAX_TOOLS_CH);
-                }
-		media_device_unregister(&dev->media_dev);
-                v4l2_device_unregister(&dev->v4l2_dev);
-                return ret;
-	}
 
 	v4l2_dev = &dev->v4l2_dev;
 
