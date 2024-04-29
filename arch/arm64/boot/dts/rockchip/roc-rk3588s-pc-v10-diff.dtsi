@@ -9,5 +9,5 @@
 };
 
 &es8388_sound {
-	hp-det-gpio = <&gpio1 RK_PA6 GPIO_ACTIVE_HIGH>;
+	hw-ver =<0x1>;
 };

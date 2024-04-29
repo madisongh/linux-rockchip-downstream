@@ -124,10 +124,10 @@
 			"Headphone", "Headphone Power",
 			"Speaker", "Speaker Power",
 			"Speaker", "Speaker Power",
-			"LINPUT2", "Main Mic",
-			"RINPUT2", "Main Mic",
-			"LINPUT1", "Headset Mic",
-			"RINPUT1", "Headset Mic";
+			"LINPUT1", "Main Mic",
+			"RINPUT1", "Main Mic",
+			"LINPUT2", "Headset Mic",
+			"RINPUT2", "Headset Mic";
 		pinctrl-names = "default";
 		pinctrl-0 = <&hp_det>;
 	};
