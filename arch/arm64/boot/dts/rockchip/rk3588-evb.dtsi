@@ -1253,6 +1253,7 @@
 &vop {
 	status = "okay";
 	vop-supply = <&vdd_log_s0>;
+	assigned-clock-rates = <800000000>;
 };
 
 &vop_mmu {

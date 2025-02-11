@@ -225,6 +225,32 @@
 };
 
 
+&hdmi0 {
+//	enable-gpios = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&hdmi0_in_vp0 {
+	status = "okay";
+};
+
+&route_hdmi0 {
+	status = "okay";
+	connect = <&vp0_out_hdmi0>;
+};
+
+&hdmi0_sound {
+	status = "okay";
+};
+
+&i2s5_8ch {
+	status = "okay";
+};
+
+/* hdmi0 phy */
+&hdptxphy_hdmi0 {
+	status = "okay";
+};
 
 &pinctrl {
 
