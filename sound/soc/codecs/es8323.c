@@ -50,7 +50,7 @@ static struct reg_default es8323_reg_defaults[] = {
 	{ 0x09, 0x00 },
 	{ 0x0a, 0x00 },
 	{ 0x0b, 0x06 },
-	{ 0x0c, 0x00 },
+	{ 0x0c, 0x40 }, 
 	{ 0x0d, 0x06 },
 	{ 0x0e, 0x30 },
 	{ 0x0f, 0x30 },
@@ -684,6 +684,11 @@ static int es8323_set_bias_level(struct snd_soc_component *component,
 		snd_soc_component_write(component, ES8323_ANAVOLMANAG, 0x7B);
 		break;
 	}
+
+  /*  modify for ly */
+  /* When playing back the recording, there is sound only on one side of the headphones.*/
+  snd_soc_component_write(component, 0x0c, 0x40);
+	
 	return 0;
 }
 
@@ -792,7 +797,7 @@ static int es8323_probe(struct snd_soc_component *component)
 	snd_soc_component_write(component, 0x09, 0x00);
 	snd_soc_component_write(component, 0x0A, 0xf8);
 	snd_soc_component_write(component, 0x0B, 0x82);
-	snd_soc_component_write(component, 0x0C, 0x0C);
+	snd_soc_component_write(component, 0x0C, 0x40); 
 	snd_soc_component_write(component, 0x0D, 0x02);
 	snd_soc_component_write(component, 0x10, 0x00);
 	snd_soc_component_write(component, 0x11, 0x00);
