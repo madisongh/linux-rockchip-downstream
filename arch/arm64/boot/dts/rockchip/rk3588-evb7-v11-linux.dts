@@ -6,8 +6,7 @@
 
 /dts-v1/;
 
-#include "rk3588-evb7-v11.dtsi"
-#include "rk3588-evb7-v11-imx415.dtsi"
+#include "Boardcon-Idea3588-V4-V2.0.dtsi"
 #include "rk3588-linux.dtsi"
 
 / {
