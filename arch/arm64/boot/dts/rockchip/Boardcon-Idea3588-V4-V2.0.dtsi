@@ -10,7 +10,51 @@
 #include "Boardcon-rk806-single.dtsi"
 
 / {
-		wireless_bluetooth: wireless-bluetooth {
+
+	vcc3v3_lcd_n: vcc3v3-lcd-n {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_lcd_n";
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&vcc_1v8_s0>;
+	};
+
+	panel-edp1 {
+		compatible = "simple-panel";
+		backlight = <&backlight>;
+		power-supply = <&vcc3v3_lcd_n>;
+		prepare-delay-ms = <120>;
+		enable-delay-ms = <120>;
+		unprepare-delay-ms = <120>;
+		disable-delay-ms = <120>;
+		width-mm = <120>;
+		height-mm = <160>;
+
+		panel-timing {
+			clock-frequency = <150000000>;
+			hactive = <1920>;
+			vactive = <1200>;
+			hfront-porch = <200>;
+			hsync-len = <32>;
+			hback-porch = <48>;
+			vfront-porch = <31>;
+			vsync-len = <6>;
+			vback-porch = <3>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <0>;
+			pixelclk-active = <0>;
+		};
+
+		port {
+			panel_in_edp1: endpoint {
+				remote-endpoint = <&edp1_out_panel>;
+			};
+		};
+	};
+	
+	wireless_bluetooth: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		clock-names = "ext_clock";	
 		status = "okay";
@@ -21,4 +65,43 @@
 		wifi_chip_type = "ap6398s";
 		status = "okay";
 	};
+};
+
+/* edp phy */
+&hdptxphy1 {
+	status = "okay";
+};
+
+&pwm2 {
+	status = "okay";
+};
+
+&backlight {
+	enable-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
+	pwms = <&pwm2 0 25000 0>;
+	status = "okay";
+};
+
+&edp1 {
+	force-hpd;
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			edp1_out_panel: endpoint {
+				remote-endpoint = <&panel_in_edp1>;
+			};
+		};
+	};
+};
+
+&edp1_in_vp1 {
+	status = "okay";
+};
+
+&route_edp1 {
+	status = "okay";
+	connect = <&vp1_out_edp1>;
 };
