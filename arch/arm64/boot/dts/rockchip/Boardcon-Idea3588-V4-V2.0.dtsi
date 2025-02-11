@@ -105,3 +105,18 @@
 	status = "okay";
 	connect = <&vp1_out_edp1>;
 };
+
+&i2c7 {
+	status = "okay";
+
+	gt9xx: gt9xx@14 {
+		compatible = "goodix,gt9xx";
+		reg = <0x14>;
+		touch-gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
+		max-x = <1920>;
+		max-y = <1200>;
+		tp-size = <89>;
+		status = "okay";
+	};
+};
