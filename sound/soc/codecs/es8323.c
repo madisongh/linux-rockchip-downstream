@@ -686,8 +686,12 @@ static int es8323_set_bias_level(struct snd_soc_component *component,
 	}
 
   /*  modify for ly */
-  /* When playing back the recording, there is sound only on one side of the headphones.*/
-  snd_soc_component_write(component, 0x0c, 0x40);
+  snd_soc_component_write(component, 0x04, 0x0C);  /* Fix the issue of low playback volume */
+	snd_soc_component_write(component, 0x0B, 0x90);  /* Fix the issue of no sound during recording */
+  
+  snd_soc_component_write(component, 0x10, 0x00);  /* Fix the issue of high background noise during recording */
+	snd_soc_component_write(component, 0x11, 0x00);  
+
 	
 	return 0;
 }
