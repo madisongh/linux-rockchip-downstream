@@ -130,6 +130,19 @@
 		pinctrl-0 = <&vcc3v3_4g_en>;
 	};
 
+	vcc5v0_sata: vcc5v0-sata {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_sata";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>; 
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_sata_en>;
+	};
+
 	
 	wireless_bluetooth: wireless-bluetooth {
 		compatible = "bluetooth-platdata";
@@ -429,9 +442,20 @@
 	pinctrl-0 = <&uart3m2_xfer>;
 };
 
+/* rs485 */
 &uart7 {
 	status = "okay";
 };
+
+&sata0 {
+	status = "okay";
+};
+
+/* sata0 phy */
+&combphy0_ps {
+	status = "okay";
+};
+
 
 &pinctrl {
 
@@ -466,6 +490,12 @@
 	4g {
 		vcc3v3_4g_en: vcc3v3-4g-en {
 			rockchip,pins = <1 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+	
+	sata {
+		vcc5v0_sata_en: vcc5v0-sata-en {
+				rockchip,pins = <1 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
