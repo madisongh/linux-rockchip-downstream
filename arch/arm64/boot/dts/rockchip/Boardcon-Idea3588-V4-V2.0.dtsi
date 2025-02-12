@@ -429,6 +429,9 @@
 	pinctrl-0 = <&uart3m2_xfer>;
 };
 
+&uart7 {
+	status = "okay";
+};
 
 &pinctrl {
 
