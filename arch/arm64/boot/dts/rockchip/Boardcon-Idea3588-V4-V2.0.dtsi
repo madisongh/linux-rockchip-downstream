@@ -485,6 +485,15 @@
 	status = "okay";
 };
 
+/* CAN */
+&can0 {
+	assigned-clocks = <&cru CLK_CAN0>;
+	assigned-clock-rates = <200000000>;
+	status = "okay";
+};
+
+
+
 &pinctrl {
 
 	usb {
