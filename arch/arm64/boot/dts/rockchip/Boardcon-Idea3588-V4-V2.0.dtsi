@@ -301,6 +301,7 @@
 	status = "okay";
 };
 
+/* type_c to ADB/DP0/USB3.0 */
 &dp0 {
 	status = "okay";
 };
@@ -425,6 +426,7 @@
 	rockchip,typec-vbus-det;
 };
 
+/* hym8563 RTC */
 &i2c1 {
 	hym8563: hym8563@51 {
 		compatible = "haoyu,hym8563";
@@ -475,6 +477,11 @@
 &pcie3x4 {
 	reset-gpios = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vcc3v3_pcie30>;
+	status = "okay";
+};
+
+/* sd card */
+&sdmmc {
 	status = "okay";
 };
 
