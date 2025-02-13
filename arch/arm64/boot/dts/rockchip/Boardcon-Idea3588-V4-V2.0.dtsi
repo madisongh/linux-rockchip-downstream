@@ -536,6 +536,12 @@
 	pinctrl-0 = <&uart9m0_xfer &uart9m0_ctsn>;
 };
 
+&display_subsystem {
+	clocks = <&hdptxphy_hdmi0>;
+	clock-names = "hdmi0_phy_pll";
+};
+
+
 &pinctrl {
 
 	usb {
