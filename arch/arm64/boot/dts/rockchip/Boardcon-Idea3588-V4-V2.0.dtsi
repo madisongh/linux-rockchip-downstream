@@ -541,6 +541,34 @@
 	clock-names = "hdmi0_phy_pll";
 };
 
+&dp1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dp1m0_pins>;
+	status = "okay";
+};
+
+&dp1_in_vp2 {
+	status = "okay";
+};
+
+&usbdp_phy1 {
+	maximum-speed = "high-speed";
+	rockchip,dp-lane-mux = <0 1 2 3>;
+	status = "okay";
+};
+
+&route_dp1 {
+	status = "okay";
+	connect = <&vp2_out_dp1>; 
+};
+
+&dp1_sound{
+	status = "okay";
+};
+
+&spdif_tx5{
+	status = "okay";
+};
 
 &pinctrl {
 
