@@ -1542,7 +1542,7 @@ static void dw_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			if (!pinctrl_select_state(slot->host->pinctrl, slot->host->idle_state)) {
 				if (device_property_read_u32(slot->host->dev, "power-off-delay-ms",
 				    &power_off_delay))
-					power_off_delay = 200;
+					power_off_delay = 50;
 				msleep(power_off_delay);
 			}
 		}
