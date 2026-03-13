@@ -51,6 +51,7 @@ ifeq ($(CONFIG_MALI_VALHALL_NO_MALI),y)
 valhall_kbase-y += csf/mali_kbase_csf_firmware_no_mali.o
 valhall_kbase-y += csf/mali_kbase_csf_fw_io_no_mali.o
 else
+ccflags-y += -Wa,-I$(srctree)
 valhall_kbase-y += csf/mali_kbase_csf_firmware.o
 valhall_kbase-y += csf/mali_kbase_csf_fw_io.o
 endif
